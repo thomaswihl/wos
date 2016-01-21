@@ -31,7 +31,14 @@ int Stream::read(char *data, unsigned len)
 
 int Stream::read(char *data, unsigned len, System::Event *event)
 {
-    if (event == nullptr || mReadFifo.used() >= len) return read(data, len);
+    if (event == nullptr) return read(data, len);
+    if (mReadFifo.used() >= len)
+    {
+        mReadFifo.read(data, len);
+        event->setResult(System::Event::Result::Success);
+        System::instance()->postEvent(event);
+        return len;
+    }
     mReadRequest.data = data;
     mReadRequest.len = len;
     mReadRequest.event = event;
@@ -41,21 +48,29 @@ int Stream::read(char *data, unsigned len, System::Event *event)
 int Stream::write(const char *data, unsigned len)
 {
     unsigned written = mWriteFifo.write(data, len);
-    if (!isInterruptEnabled(Interrupt::TransmitDataEmpty))
+    if (mDmaWrite->complete()) nextDmaWrite();
+    while (written != len)
     {
-        char c;
-        if (mWriteFifo.pop(c))
+        while (!mDmaWrite->complete())
         {
-            Serial::write(c);
-            enableInterrupt(Interrupt::TransmitDataEmpty);
         }
-    }
-    if (written != len)
-    {
-        mWriteFifo.clear();
-        mWriteFifo.write("\nFIFO\n", 6);
+        written += mWriteFifo.write(data + written, len - written);
     }
     return written;
+}
+
+void Stream::nextDmaWrite()
+{
+    unsigned len;
+    const char* data;
+    len = mWriteFifo.getContBuffer(data);
+    if (len > 0)
+    {
+        mDmaWrite->setAddress(Dma::Stream::End::Memory, reinterpret_cast<uint32_t>(data));
+        mDmaWrite->setTransferCount(len);
+        mDmaWrite->start();
+    }
+
 }
 
 void Stream::dmaReadComplete()
@@ -65,7 +80,8 @@ void Stream::dmaReadComplete()
 
 void Stream::dmaWriteComplete()
 {
-
+    mWriteFifo.skip(mDmaWrite->transferCount());
+    nextDmaWrite();
 }
 
 void Stream::error(System::Event::Result)

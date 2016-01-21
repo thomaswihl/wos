@@ -30,6 +30,8 @@ private:
 
     Request mReadRequest;
 
+    void nextDmaWrite();
+
     // Device interface
     void dmaReadComplete();
     void dmaWriteComplete();
