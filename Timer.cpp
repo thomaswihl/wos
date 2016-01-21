@@ -194,7 +194,7 @@ void Timer::enableCaptureCompareIrq(CaptureCompareIndex index, bool enable)
     }
 }
 
-void Timer::interruptCallback(InterruptController::Index index)
+void Timer::interruptCallback(InterruptController::Index /*index*/)
 {
     __SR sr;
     sr.value = mBase->SR.value;

@@ -18,9 +18,9 @@
 
 #include "System.h"
 #include "CircularBuffer.h"
+#include "atomic.h"
 #include "Spi.h"
 #include "i2c.h"
-#include "atomic.h"
 
 template<typename T>
 CircularBuffer<T>::CircularBuffer(unsigned int size)  :
@@ -30,6 +30,7 @@ CircularBuffer<T>::CircularBuffer(unsigned int size)  :
     mRead(mBuffer),
     mUsed(0)
 {
+    for (int i = 0; i < mSize; ++i) mBuffer[i] = (T)0xaf;
 }
 
 template<typename T>
@@ -61,7 +62,7 @@ bool CircularBuffer<T>::pop(T &elem)
 }
 
 template<typename T>
-bool CircularBuffer<T>::front(T elem)
+bool CircularBuffer<T>::front(T& elem)
 {
     if (free() == 0) return false;
     elem = *mWrite;
@@ -130,9 +131,24 @@ T *CircularBuffer<T>::writePointer()
 }
 
 template<typename T>
+void CircularBuffer<T>::setWritePointer(T* addr)
+{
+    mWrite = addr;
+    int used = mWrite - mRead;
+    if (used < 0) used += mSize;
+    mUsed = used;
+}
+
+template<typename T>
 T *CircularBuffer<T>::readPointer()
 {
     return  const_cast<T*>(mRead);
+}
+
+template<typename T>
+void CircularBuffer<T>::setReadPointer(T* addr)
+{
+    mRead = addr;
 }
 
 template<typename T>
@@ -158,6 +174,13 @@ unsigned int CircularBuffer<T>::skip(unsigned int len)
     align(mRead);
     atomic_add(&mUsed, -len);
     return len;
+}
+
+template<typename T>
+void CircularBuffer<T>::clear()
+{
+    mUsed = 0;
+    mWrite = mRead = mBuffer;
 }
 
 template<typename T>

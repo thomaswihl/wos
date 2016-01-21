@@ -71,8 +71,8 @@ extern void (* const gIsrVectorTable[])(void);
 __attribute__ ((section(".isr_vector_table")))
 void (* const gIsrVectorTable[])(void) = {
         // 16 trap functions for ARM
-        (void (* const)())&__stack_end, (void (* const)())&_start, Trap, Trap, Trap, Trap, Trap, 0,
-0, 0, 0, Trap, Trap, 0, Trap, SysTick,
+        (void (* const)())&__stack_end, (void (* const)())&_start, 0, 0, 0, 0, 0, 0,
+0, 0, 0, 0, 0, 0, 0, SysTick,
 // 82 hardware interrupts specific to the STM32F407
 Isr, Isr, Isr, Isr, Isr, Isr, Isr, Isr, Isr, Isr,
 Isr, Isr, Isr, Isr, Isr, Isr, Isr, Isr, Isr, Isr,
@@ -134,17 +134,17 @@ extern int errno;
 char *__env[1] = { 0 };
 char **environ = __env;
 
-int _open(const char *name, int flags, int mode)
+int _open(const char */*name*/, int /*flags*/, int /*mode*/)
 {
     return -1;
 }
 
-int _close(int file)
+int _close(int /*file*/)
 {
     return -1;
 }
 
-int _read(int file, char *ptr, int len)
+int _read(int /*file*/, char *ptr, int len)
 {
     System::instance()->consoleRead(ptr, len);
     return len;
@@ -156,30 +156,30 @@ int _getpid(void)
 }
 
 
-int _kill(int pid, int sig)
+int _kill(int /*pid*/, int /*sig*/)
 {
     errno = EINVAL;
     return -1;
 }
 
-int _write(int file, const char *ptr, int len)
+int _write(int /*file*/, const char *ptr, int len)
 {
     System::instance()->consoleWrite(ptr, len);
     return len;
 }
 
-int _fstat(int file, struct stat *st)
+int _fstat(int /*file*/, struct stat *st)
 {
     st->st_mode = S_IFCHR;
     return 0;
 }
 
-int _isatty(int file)
+int _isatty(int /*file*/)
 {
     return 1;
 }
 
-int _lseek(int file, int ptr, int dir)
+int _lseek(int /*file*/, int /*ptr*/, int /*dir*/)
 {
     return 0;
 }
@@ -497,24 +497,4 @@ void System::printError(const char *component, const char *message)
 {
     printf("\nERROR in %s: %s\n", component, message);
 }
-
-template<typename T>
-void System::debugHex(T value)
-{
-    static const char* const digit = "0123456789abcdef";
-    char buf[sizeof(T) * 2 + 2];
-    int index = 0;
-    buf[index++] = '0';
-    buf[index++] = 'x';
-    for (int i = sizeof(T) * 2 - 1; i >= 0; --i)
-    {
-        buf[index++] = digit[(value >> (4 * i)) & 0xf];
-    }
-    debugMsg(buf, sizeof(T) * 2 + 2);
-}
-
-template void System::debugHex(uint8_t value);
-template void System::debugHex(uint16_t value);
-template void System::debugHex(uint32_t value);
-template void System::debugHex(uint64_t value);
 

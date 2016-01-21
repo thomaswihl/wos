@@ -34,7 +34,7 @@ ExternalInterrupt::~ExternalInterrupt()
 {
 }
 
-void ExternalInterrupt::interruptCallback(InterruptController::Index index)
+void ExternalInterrupt::interruptCallback(InterruptController::Index /*index*/)
 {
     uint32_t pr = mBase->PR;
     for (unsigned int i = 0; i < mVectorSize; ++i)

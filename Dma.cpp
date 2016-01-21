@@ -142,6 +142,21 @@ void Dma::Stream::setAddress(Dma::Stream::End end, System::BaseAddress address)
     else mPeripheral = address;
 }
 
+System::BaseAddress Dma::Stream::address(Dma::Stream::End end)
+{
+    if (end == End::Memory0) return mMemory0;
+    else if (end == End::Memory1) return mMemory1;
+    return mPeripheral;
+}
+
+System::BaseAddress Dma::Stream::currentAddress(Dma::Stream::End end)
+{
+    if (end == End::Memory0) return mDma.mBase->STREAM[mStream].M0AR;
+    else if (end == End::Memory1) return mDma.mBase->STREAM[mStream].M1AR;
+    return mDma.mBase->STREAM[mStream].PAR;
+}
+
+
 void Dma::Stream::setCallback(Callback* callback)
 {
     mCallback = callback;
@@ -161,7 +176,7 @@ void Dma::Stream::config(Dma::Stream::Direction direction, bool peripheralIncrem
     setDirection(direction);
 }
 
-void Dma::Stream::interruptCallback(InterruptController::Index index)
+void Dma::Stream::interruptCallback(InterruptController::Index /*index*/)
 {
     // get and clear interrupt flags
     uint8_t status = mDma.getInterruptStatus(mStream);
@@ -193,7 +208,6 @@ bool Dma::Stream::complete()
     return mDma.mBase->STREAM[mStream].CR.BITS.EN == 0;
 }
 
-
 void Dma::Stream::setTransferCount(uint16_t count)
 {
     mCount = count;
@@ -211,7 +225,7 @@ void Dma::Stream::setFlowControl(Dma::Stream::FlowControl flowControl)
 
 void Dma::Stream::setCircular(bool circular)
 {
-    mDma.mBase->STREAM[mStream].CR.BITS.CIRC = circular ? 1 : 0;
+    mStreamConfig.BITS.CIRC = circular ? 1 : 0;
 }
 
 

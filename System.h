@@ -47,7 +47,7 @@ public:
     class Event
     {
     public:
-        enum class Result { Success, ParityError, FramingError, NoiseDetected, OverrunError, LineBreak, CommandResponse, CommandSent, CommandCrcFail, CommandTimeout, DataSuccess, DataFail };
+        enum class Result { Success, Busy, ParityError, FramingError, NoiseDetected, OverrunError, LineBreak, CommandResponse, CommandSent, CommandCrcFail, CommandTimeout, DataSuccess, DataFail };
         class Callback
         {
         public:
@@ -76,12 +76,11 @@ public:
         PendSV = 14,
     };
 
-    typedef unsigned long BaseAddress;
+    typedef uint32_t BaseAddress;
 
     virtual void handleInterrupt(uint32_t index) = 0;
     virtual void consoleRead(char *msg, unsigned int len) = 0;
     virtual void consoleWrite(const char *msg, unsigned int len) = 0;
-    virtual void debugMsg(const char *msg, unsigned int len) = 0;
     virtual void handleSysTick() = 0;
     virtual void usleep(unsigned int us) = 0;
     virtual uint64_t ns() = 0;
@@ -100,8 +99,6 @@ public:
 
     void printWarning(const char* component, const char* message);
     void printError(const char* component, const char* message);
-    template<typename T>
-    void debugHex(T value);
 
     uint32_t memFree();
     uint32_t memUsed();

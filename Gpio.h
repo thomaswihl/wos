@@ -19,7 +19,7 @@
 #ifndef GPIO_H
 #define GPIO_H
 
-#include <cstdint>
+#include <stdint.h>
 
 class Gpio
 {

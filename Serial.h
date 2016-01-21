@@ -24,18 +24,18 @@
 #include "InterruptController.h"
 #include "Dma.h"
 #include "CircularBuffer.h"
-#include "Stream.h"
 #include "Device.h"
 
 #include <queue>
 
-class Serial : public Device, public ClockControl::Callback, public Stream<char>
+class Serial : public Device, public ClockControl::Callback
 {
 public:
     enum class WordLength { Eight, Nine };
     enum class Parity { None, Even, Odd };
     enum class StopBits { One, Half, Two, OneAndHalf };
     enum class HardwareFlowControl { None, Cts, Rts, CtsRts };
+    enum class Interrupt { TransmitDataEmpty, TransmitComplete, DataRead };
 
     Serial(System::BaseAddress base, ClockControl* clockControl, ClockControl::Clock clock);
     virtual ~Serial();
@@ -50,14 +50,28 @@ public:
 
     virtual void enable(Device::Part part);
     virtual void disable(Device::Part part);
+    bool isEnabled(Device::Part part);
+
+    void enableInterrupt(Interrupt irq, bool enable = true);
+    bool isInterruptEnabled(Interrupt irq);
 
     void configDma(Dma::Stream *write, Dma::Stream *read);
+
+    void waitTransmitComplete();
+    void waitTransmitDataEmpty();
+    void waitReceiveNotEmpty();
+
+    inline uint32_t read() { return mBase->DR; }
+    inline void write(uint32_t data) { mBase->DR = data; }
 protected:
     virtual void clockCallback(ClockControl::Callback::Reason reason, uint32_t newClock);
     virtual void interruptCallback(InterruptController::Index index);
 
-    virtual void dmaReadComplete();
-    virtual void dmaWriteComplete();
+    virtual void error(System::Event::Result) = 0;
+    virtual void dataRead(uint32_t data) = 0;
+    virtual void dataReadByDma() = 0;
+    virtual void transmitComplete() = 0;
+    virtual void transmitDataEmpty() = 0;
 
 private:
     union __SR
@@ -148,25 +162,11 @@ private:
         }   GTPR;
     };
 
-    enum { READ_BUFFER_SIZE = 256, WRITE_BUFFER_SIZE = 256 };
-
     volatile USART* mBase;
     ClockControl* mClockControl;
     ClockControl::Clock mClock;
     uint32_t mSpeed;
 
-    void waitTransmitComplete();
-    void waitReceiveNotEmpty();
-
-    virtual void readPrepare();
-    virtual void readSync();
-    virtual void readTrigger();
-    virtual void readDone();
-
-    virtual void writePrepare();
-    virtual void writeSync();
-    virtual void writeTrigger();
-    virtual void writeDone();
 };
 
 #endif // SERIAL_H

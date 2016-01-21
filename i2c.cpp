@@ -1,4 +1,5 @@
 #include "i2c.h"
+#include "stdio.h"
 
 I2C::I2C(System::BaseAddress base, ClockControl *clockControl, ClockControl::Clock clock) :
     mBase(reinterpret_cast<volatile IIC*>(base)),
@@ -11,12 +12,12 @@ I2C::I2C(System::BaseAddress base, ClockControl *clockControl, ClockControl::Clo
 
 
 
-void I2C::enable(Device::Part part)
+void I2C::enable(Device::Part /*part*/)
 {
     //mBase->CR1.PE = 1;
 }
 
-void I2C::disable(Device::Part part)
+void I2C::disable(Device::Part /*part*/)
 {
     mBase->CR1.PE = 0;
 }
@@ -92,7 +93,7 @@ void I2C::dmaWriteComplete()
     mBase->CR1.PE = 0;
 }
 
-void I2C::clockCallback(ClockControl::Callback::Reason reason, uint32_t clock)
+void I2C::clockCallback(ClockControl::Callback::Reason /*reason*/, uint32_t /*clock*/)
 {
 }
 

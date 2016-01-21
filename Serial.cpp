@@ -85,8 +85,14 @@ void Serial::setHardwareFlowControl(Serial::HardwareFlowControl hardwareFlow)
 void Serial::enable(Device::Part part)
 {
     mBase->CR1.UE = 1;
-    if (part & Device::Write) mBase->CR1.TE = 1;
-    if (part & Device::Read) mBase->CR1.RE = 1;
+    if (part & Device::Write)
+    {
+        mBase->CR1.TE = 1;
+    }
+    if (part & Device::Read)
+    {
+        mBase->CR1.RE = 1;
+    }
 }
 
 void Serial::disable(Device::Part part)
@@ -98,6 +104,7 @@ void Serial::disable(Device::Part part)
     if (part & Device::Write)
     {
         mBase->CR1.TE = 0;
+        mBase->CR1.TXEIE = 0;
         mBase->CR1.TCIE = 0;
     }
     if (part & Device::Read)
@@ -105,6 +112,35 @@ void Serial::disable(Device::Part part)
         mBase->CR1.RE = 0;
         mBase->CR1.RXNEIE = 0;
     }
+}
+
+bool Serial::isEnabled(Device::Part part)
+{
+    if (part == Device::All) return (mBase->CR1.TE != 0) && (mBase->CR1.RE != 0);
+    if (part & Device::Write) return (mBase->CR1.TE != 0);
+    if (part & Device::Read) return (mBase->CR1.RE != 0);
+    return false;
+}
+
+void Serial::enableInterrupt(Interrupt irq, bool enable)
+{
+    switch (irq)
+    {
+    case Interrupt::TransmitDataEmpty: mBase->CR1.TXEIE = enable ? 1 : 0; break;
+    case Interrupt::TransmitComplete: mBase->CR1.TCIE = enable ? 1 : 0; break;
+    case Interrupt::DataRead: mBase->CR1.RXNEIE = enable ? 1 : 0; break;
+    }
+}
+
+bool Serial::isInterruptEnabled(Serial::Interrupt irq)
+{
+    switch (irq)
+    {
+    case Interrupt::TransmitDataEmpty: return mBase->CR1.TXEIE;
+    case Interrupt::TransmitComplete: return mBase->CR1.TCIE;
+    case Interrupt::DataRead: return mBase->CR1.RXNEIE;
+    }
+    return false;
 }
 
 void Serial::config(uint32_t speed, Serial::Parity parity, Serial::WordLength dataBits, Serial::StopBits stopBits, HardwareFlowControl hardwareFlow)
@@ -135,7 +171,7 @@ void Serial::configDma(Dma::Stream *write, Dma::Stream *read)
     {
         mDmaRead->config(Dma::Stream::Direction::PeripheralToMemory, false, true, Dma::Stream::DataSize::Byte, Dma::Stream::DataSize::Byte, Dma::Stream::BurstLength::Single, Dma::Stream::BurstLength::Single);
         mDmaRead->setAddress(Dma::Stream::End::Peripheral, reinterpret_cast<System::BaseAddress>(&mBase->DR));
-        mDmaWrite->configFifo(Dma::Stream::FifoThreshold::Quater);
+        mDmaRead->configFifo(Dma::Stream::FifoThreshold::Disable);
         mBase->CR3.DMAR = 1;
     }
     else
@@ -144,83 +180,16 @@ void Serial::configDma(Dma::Stream *write, Dma::Stream *read)
     }
 }
 
-void Serial::interruptCallback(InterruptController::Index index)
-{
-    __SR sr;
-    sr.value = mBase->SR.value;
-    if (sr.bits.ORE)
-    {
-        Stream<char>::readResult(System::Event::Result::OverrunError);
-        // we have to read the data even though the STM tells us that there is nothing to read (RXNE = 0)
-        (void)mBase->DR;
-    }
-    if (sr.bits.FE)
-    {
-        Stream<char>::readResult(System::Event::Result::FramingError);
-        // we have to read the data even though the STM tells us that there is nothing to read (RXNE = 0)
-        (void)mBase->DR;
-    }
-    if (sr.bits.PE)
-    {
-        Stream<char>::readResult(System::Event::Result::ParityError);
-        // we have to wait for the RXNE flag
-    }
-    if (sr.bits.LBD)
-    {
-        Stream<char>::readResult(System::Event::Result::LineBreak);
-        // we have to manually clear the bit
-        __SR clear;
-        clear.bits.LBD = 1;
-        mBase->SR.value = clear.value;
-    }
-    if (sr.bits.NF)
-    {
-        Stream<char>::readResult(System::Event::Result::NoiseDetected);
-        // we have to read the data even though the STM tells us that there is nothing to read (RXNE = 0)
-        (void)mBase->DR;
-    }
-    if (sr.bits.RXNE && mBase->CR1.RXNEIE)
-    {
-        // check if we need to read another byte, if not disable the interrupt
-        if (!Stream<char>::read(static_cast<char>(mBase->DR)))
-        {
-            mBase->CR1.RXNEIE = 0;
-        }
-    }
-    if (sr.bits.TC && mBase->CR1.TCIE)
-    {
-        // check if we need to write another byte, if not disable the interrupt
-        char c;
-        if (Stream<char>::write(c))
-        {
-            mBase->DR = c;
-        }
-        else
-        {
-            mBase->CR1.TCIE = 0;
-        }
-    }
-}
-
-void Serial::dmaReadComplete()
-{
-    Stream<char>::readDmaComplete(mDmaRead->transferCount());
-}
-
-void Serial::dmaWriteComplete()
-{
-    //waitTransmitComplete();
-    Stream<char>::writeDmaComplete(mDmaWrite->transferCount());
-}
-
-void Serial::clockCallback(ClockControl::Callback::Reason reason, uint32_t newClock)
-{
-    if (reason == ClockControl::Callback::Reason::Changed && mSpeed != 0) setSpeed(mSpeed);
-}
-
 void Serial::waitTransmitComplete()
 {
     while (!mBase->SR.bits.TC)
+    {
+    }
+}
+
+void Serial::waitTransmitDataEmpty()
+{
+    while (!mBase->SR.bits.TXE)
     {
     }
 }
@@ -232,97 +201,68 @@ void Serial::waitReceiveNotEmpty()
     }
 }
 
-void Serial::readPrepare()
+
+void Serial::interruptCallback(InterruptController::Index /*index*/)
 {
+    __SR sr;
+    sr.value = mBase->SR.value;
+    bool any = false;
+    if (sr.bits.ORE)
+    {
+        error(System::Event::Result::OverrunError);
+        // we have to read the data even though the STM tells us that there is nothing to read (RXNE = 0)
+        (void)mBase->DR;
+        any = true;
+    }
+    if (sr.bits.FE)
+    {
+        error(System::Event::Result::FramingError);
+        // we have to read the data even though the STM tells us that there is nothing to read (RXNE = 0)
+        (void)mBase->DR;
+        any = true;
+    }
+    if (sr.bits.PE)
+    {
+        error(System::Event::Result::ParityError);
+        // we have to wait for the RXNE flag
+        any = true;
+    }
+    if (sr.bits.LBD)
+    {
+        error(System::Event::Result::LineBreak);
+        // we have to manually clear the bit
+        __SR clear;
+        clear.bits.LBD = 1;
+        mBase->SR.value = clear.value;
+        any = true;
+    }
+    if (sr.bits.NF)
+    {
+        error(System::Event::Result::NoiseDetected);
+        // we have to read the data even though the STM tells us that there is nothing to read (RXNE = 0)
+        (void)mBase->DR;
+        any = true;
+    }
+    if (sr.bits.RXNE && mBase->CR1.RXNEIE)
+    {
+        dataRead(mBase->DR);
+        any = true;
+    }
+    if (sr.bits.TXE && mBase->CR1.TXEIE)
+    {
+        transmitDataEmpty();
+        any = true;
+    }
+    if (sr.bits.TC && mBase->CR1.TCIE)
+    {
+        transmitComplete();
+        any = true;
+    }
+    if (!any) dataReadByDma();
 }
 
-void Serial::readSync()
+void Serial::clockCallback(ClockControl::Callback::Reason reason, uint32_t /*newClock*/)
 {
-    do
-    {
-        waitReceiveNotEmpty();
-    }   while (Stream<char>::read(static_cast<char>(mBase->DR)));
-}
-
-void Serial::readTrigger()
-{
-    if (mDmaRead != 0)
-    {
-        if (!mDmaRead->complete()) return;
-        char* data;
-        unsigned int len;
-        readDmaBuffer(data, len);
-        if (len > 0)
-        {
-            mDmaRead->setAddress(Dma::Stream::End::Memory, reinterpret_cast<uint32_t>(data));
-            mDmaRead->setTransferCount(len);
-            mDmaRead->start();
-        }
-    }
-    else if (mInterrupt != 0)
-    {
-        mBase->CR1.RXNEIE = 1;
-    }
-    else
-    {
-        // we have to do it manually
-        readSync();
-    }
-}
-
-void Serial::readDone()
-{
-}
-
-void Serial::writePrepare()
-{
-}
-
-void Serial::writeSync()
-{
-    char c;
-    while (Stream<char>::write(c))
-    {
-        waitTransmitComplete();
-        mBase->DR = c;
-    }
-}
-
-void Serial::writeTrigger()
-{
-    if (mDmaWrite != 0)
-    {
-        if (!mDmaWrite->complete()) return;
-        const char* data;
-        unsigned int len;
-        writeDmaBuffer(data, len);
-        if (len > 0)
-        {
-            mDmaWrite->setAddress(Dma::Stream::End::Memory, reinterpret_cast<uint32_t>(data));
-            mDmaWrite->setTransferCount(len);
-            mBase->SR.bits.TC = 0;
-            mDmaWrite->start();
-        }
-    }
-    else if (mInterrupt != 0)
-    {
-        if (mBase->CR1.TCIE != 1)
-        {
-            mBase->CR1.TCIE = 1;
-            // send first bye, to start transmission
-            char c;
-            if (Stream<char>::write(c)) mBase->DR = c;
-            else mBase->CR1.TCIE = 0;
-        }
-    }
-    else
-    {
-        // we have to do it manually
-        writeSync();
-    }
-}
-
-void Serial::writeDone()
-{
+    if (reason == ClockControl::Callback::Reason::Changed && mSpeed != 0) setSpeed(mSpeed);
 }
 

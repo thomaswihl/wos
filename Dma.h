@@ -129,9 +129,12 @@ public:
         void setIncrement(End end, bool increment);
         void setDirection(Direction direction);
         void setAddress(End end, System::BaseAddress address);
+        System::BaseAddress address(End end);
+        System::BaseAddress currentAddress(End end);
         void setCallback(Callback* callback);
         void setTransferCount(uint16_t count);
         uint16_t transferCount();
+        uint16_t currentTransferCount() const { return mDma.mBase->STREAM[mStream].NDTR; }
         void setFlowControl(FlowControl flowControl);
         void setCircular(bool circular);
 

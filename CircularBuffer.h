@@ -35,18 +35,21 @@ public:
 
     bool push(T elem);
     bool pop(T &elem);
-    bool front(T elem);
+    bool front(T &elem);
     bool back(T &elem);
     unsigned int write(const T* data, unsigned int len);
     unsigned int read(T* data, unsigned int len);
     T operator[](int index);
 
     T *writePointer();
+    void setWritePointer(T* addr);
     T* readPointer();
+    void setReadPointer(T* addr);
     T* bufferPointer();
 
     unsigned int getContBuffer(const T*& data);
     unsigned int skip(unsigned int len);
+    void clear();
 
 protected:
     unsigned int mSize;

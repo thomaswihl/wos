@@ -108,7 +108,7 @@ uint64_t SysTickControl::ns()
     return val;
 }
 
-void SysTickControl::clockCallback(ClockControl::Callback::Reason reason, uint32_t newClock)
+void SysTickControl::clockCallback(ClockControl::Callback::Reason reason, uint32_t /*newClock*/)
 {
     if (reason == ClockControl::Callback::Reason::Changed) config();
 }

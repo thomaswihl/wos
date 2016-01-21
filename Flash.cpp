@@ -105,7 +105,7 @@ void Flash::lock()
     mBase->CR.LOCK = 1;
 }
 
-void Flash::clockCallback(Reason reason, uint32_t newClock)
+void Flash::clockCallback(Reason /*reason*/, uint32_t newClock)
 {
     uint32_t ws = getWaitStates(newClock);
     if (mBase->ACR.LATENCY < ws) mBase->ACR.LATENCY = ws;
