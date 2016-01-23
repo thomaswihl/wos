@@ -31,14 +31,7 @@ int Stream::read(char *data, unsigned len)
 
 int Stream::read(char *data, unsigned len, System::Event *event)
 {
-    if (event == nullptr) return read(data, len);
-    if (mReadFifo.used() >= len)
-    {
-        mReadFifo.read(data, len);
-        event->setResult(System::Event::Result::Success);
-        System::instance()->postEvent(event);
-        return len;
-    }
+    if (event == nullptr || mReadFifo.used() >= len) return read(data, len);
     mReadRequest.data = data;
     mReadRequest.len = len;
     mReadRequest.event = event;

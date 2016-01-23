@@ -86,6 +86,7 @@ protected:
 private:
     enum { MAX_LINE_LEN = 256, MAX_ESCAPE_LEN = 8, MAX_PROMPT_LEN = 16, MAX_ARG_LEN = 16 };
     enum class State { Input, Debug, Escape };
+    enum class EscapeState { Escape, EscDispatch, CsiEntry, CsiParam, CsiDispatch, Ground, Unknown };
 
     class Possibilities
     {
@@ -111,7 +112,8 @@ private:
     Stream& mSerial;
     std::vector<Command*> mCmd;
     char mLine[MAX_LINE_LEN];
-    unsigned int mLineLen;
+    int mLineLen;
+    int mCurserPos;
     char mPrompt[MAX_PROMPT_LEN];
     State mState;
     bool mCommandTime;
@@ -120,8 +122,9 @@ private:
     CircularBuffer<char*> mHistory;
     int mHistoryIndex;
     char mEscape[MAX_ESCAPE_LEN];
-    unsigned int mEscapeLen;
-    unsigned int mFirstSpace;
+    int mEscapeLen;
+    EscapeState mEscapeState;
+    int mFirstSpace;
     Argument mArguments[MAX_ARG_LEN];
     int mFbIndex;
     int mFbIndexOffset;
@@ -134,6 +137,8 @@ private:
     unsigned int findArguments(bool splitArgs);
     void execute();
     void addToHistory(const char* line);
+    void advanceCurser(int amount);
+    void copyHistory();
 };
 
 #endif // COMMANDINTERPRETER_H

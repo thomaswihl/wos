@@ -27,6 +27,7 @@
 CommandInterpreter::CommandInterpreter(Stream &serial) :
     mSerial(serial),
     mLineLen(0),
+    mCurserPos(0),
     mState(State::Input),
     mCommandTime(false),
     mReadChar(0),
@@ -34,6 +35,7 @@ CommandInterpreter::CommandInterpreter(Stream &serial) :
     mHistory(64),
     mHistoryIndex(0),
     mEscapeLen(0),
+    mEscapeState(EscapeState::Ground),
     mFirstSpace(0),
     mFbIndex(0),
     mFbIndexOffset(1),
@@ -59,22 +61,20 @@ void CommandInterpreter::feed()
         case '\r':
         case '\n':
             mSerial.write("\r\n", 2);
-            if (mHistoryIndex != 0)
-            {
-                strcpy(mLine, mHistory[mHistoryIndex]);
-                mLineLen = strlen(mHistory[mHistoryIndex]);
-                mHistoryIndex = 0;
-            }
+            if (mHistoryIndex != 0) copyHistory();
             execute();
             mLineLen = 0;
+            mCurserPos = 0;
             mFirstSpace = 0;
             printLine();
             break;
         case 8:
         case 127:
-            if (mLineLen > 0)
+            if (mCurserPos > 0)
             {
+                if (mLineLen != mCurserPos) memmove(mLine + mCurserPos - 1, mLine + mCurserPos, mLineLen - mCurserPos);
                 --mLineLen;
+                --mCurserPos;
                 printLine();
             }
             break;
@@ -82,6 +82,7 @@ void CommandInterpreter::feed()
             mState = State::Debug;
             printf("\nEntering DEBUG mode\n");
             mLineLen = 0;
+            mCurserPos = 0;
             printLine();
             break;
 //        case 18:    // Ctrl+R
@@ -99,15 +100,22 @@ void CommandInterpreter::feed()
             mEscapeLen = 0;
             mEscape[mEscapeLen++] = mReadChar;
             mState = State::Escape;
+            mEscapeState = EscapeState::Escape;
             break;
         default:
             if (mReadChar == ' ')
             {
-                if (mLineLen == 0) break;
-                else if (mFirstSpace == 0) mFirstSpace = mLineLen;
+                if (mCurserPos == 0) break;
+                else if (mFirstSpace < mCurserPos) mFirstSpace = mCurserPos;
             }
-            if (mLineLen < MAX_LINE_LEN) mLine[mLineLen++] = mReadChar;
-            mSerial.write(&mReadChar, 1);
+            if (mLineLen < MAX_LINE_LEN)
+            {
+                if (mCurserPos != mLineLen) memmove(mLine + mCurserPos + 1, mLine + mCurserPos, mLineLen - mCurserPos);
+                mLine[mCurserPos++] = mReadChar;
+                ++mLineLen;
+            }
+            if (mCurserPos != mLineLen) printLine();
+            else mSerial.write(&mReadChar, 1);
             break;
         }
     }
@@ -128,57 +136,122 @@ void CommandInterpreter::feed()
     else if (mState == State::Escape)
     {
         mEscape[mEscapeLen++] = mReadChar;
-        if (mEscapeLen == 2 && mReadChar >= 0x40 && mReadChar <= 0x5f)
+        if (mEscapeLen == 2)
         {
-            // [
-        }
-        else
-        {
-            if (mReadChar >= 0x40 && mReadChar <= 0x7e)
+            if (mReadChar == 0x5b)
             {
-                bool unknown = true;
-                if (mEscapeLen == 3 && mEscape[0] == 0x1b && mEscape[1] == 0x5b)
+                mEscapeState = EscapeState::CsiEntry;
+            }
+            else if ((mReadChar >= 0x30 && mReadChar <= 0x4f) ||
+                     (mReadChar >= 0x51 && mReadChar <= 0x57) ||
+                     mReadChar == 0x59 ||
+                     mReadChar == 0x5a ||
+                     mReadChar == 0x5c ||
+                     (mReadChar >= 0x30 && mReadChar <= 0x4f))
+            {
+                mEscapeState = EscapeState::EscDispatch;
+            }
+            else
+            {
+                mEscapeState = EscapeState::Unknown;
+            }
+        }
+        else if (mEscapeLen == 3)
+        {
+            if (mEscapeState == EscapeState::CsiEntry)
+            {
+                if (mReadChar >= 0x40 && mReadChar <= 0x7e)
                 {
+                    mEscapeState = EscapeState::Ground;
                     switch (mReadChar)
                     {
                     case 0x41:  // Curser Up
-                        unknown = false;
                         if (mHistoryIndex > -static_cast<int>(mHistory.used())) --mHistoryIndex;
                         printLine();
                         break;
                     case 0x42:  // Curser Down
-                        unknown = false;
                         if (mHistoryIndex < 0) ++mHistoryIndex;
                         printLine();
                         break;
                     case 0x44:  // Curser Left
+                        advanceCurser(-1);
                         break;
                     case 0x43:  // Curser Right
+                        advanceCurser(1);
+                        break;
+                    case 0x46:  // End
+                        mCurserPos = mLineLen;
+                        printLine();
+                        break;
+                    case 0x48:  // Pos1
+                        mCurserPos = 0;
+                        printLine();
+                        break;
+                    default:
+                        mEscapeState = EscapeState::Unknown;
+                    }
+                }
+                else if ((mReadChar >= 0x30 && mReadChar <= 0x39) || mReadChar == 0x3b || (mReadChar >= 0x3c && mReadChar <= 0x3f))
+                {
+                    mEscapeState = EscapeState::CsiParam;
+                }
+                else
+                {
+                    mEscapeState = EscapeState::Unknown;
+                }
+            }
+            else if (mEscapeState == EscapeState::EscDispatch)
+            {
+                mEscapeState = EscapeState::Unknown;
+            }
+        }
+        else if (mEscapeLen == 4)
+        {
+            if (mEscapeState == EscapeState::CsiParam)
+            {
+                if (mReadChar == 0x7e)
+                {
+                    mEscapeState = EscapeState::Ground;
+                    switch (mEscape[2])
+                    {
+                    case 0x33:  // DEL
+                        if (mCurserPos != mLineLen && mLineLen > 0)
+                        {
+                            memmove(mLine + mCurserPos, mLine + mCurserPos + 1, mLineLen - mCurserPos - 1);
+                            --mLineLen;
+                            printLine();
+                        }
                         break;
                     case 0x35:  // Page Up
                         break;
                     case 0x36:  // Page Down
                         break;
-                    case 0x48:  // Pos1
-                        break;
-                    case 0x46:  // End
-                        break;
-                    case 0x32:  // Insert
-                        break;
-                    case 0x33:  // Del
+                    default:
+                        mEscapeState = EscapeState::Unknown;
                         break;
                     }
                 }
-                mState = State::Input;
-                if (unknown)
+                else
                 {
-                    printf("\nESC: ");
-                    for (unsigned int i = 0; i < mEscapeLen; ++i) printf("%02x ", mEscape[i]);
-                    printf("\n");
-                    printLine();
+                    mEscapeState = EscapeState::Unknown;
                 }
-                mState = State::Input;
             }
+            else
+            {
+                mEscapeState = EscapeState::Unknown;
+            }
+        }
+        if (mEscapeState == EscapeState::Unknown)
+        {
+            mState = State::Input;
+            printf("\nESC: ");
+            for (int i = 0; i < mEscapeLen; ++i) printf("%02x ", mEscape[i]);
+            printf("\n");
+            printLine();
+        }
+        else if (mEscapeState == EscapeState::Ground)
+        {
+            mState = State::Input;
         }
     }
 }
@@ -190,7 +263,7 @@ void CommandInterpreter::add(Command* cmd)
 
 void CommandInterpreter::start()
 {
-    mSerial.read(&mReadChar, 1, &mCharReceived);
+    while (mSerial.read(&mReadChar, 1, &mCharReceived) == 1) feed();
     //mSystem.mSysTick.addRepeatingEvent(&mTickEvent);
     printLine();
 }
@@ -340,26 +413,28 @@ void CommandInterpreter::eventCallback(System::Event* event)
             printf("\nERROR: %s\n", s);
             printLine();
         }
-        feed();
-        mSerial.read(&mReadChar, 1, &mCharReceived);
+        do
+        {
+            feed();
+        }   while (mSerial.read(&mReadChar, 1, &mCharReceived) == 1);
     }
     else if (event == &mTickEvent)
     {
-//        static unsigned int ps = -1;
-//        unsigned int s = mSystem.ns() / 10000000000LU;
-//        if (s != ps)
-//        {
-//            ps = s;
-//            uint32_t te = mSystem.timeInEvent() / 1000000;
-//            uint32_t ti = mSystem.timeInInterrupt() / 1000000;
-//            uint32_t ic = mSystem.interruptCount();
-//            uint32_t ec = mSystem.eventCount();
-//            printf("\x1b[s\x1b[;H%4u:%02u:%02u, %10lu.%03lus in %10lu Events, %10lu.%03lus in %10lu IRQs\x1b[K\x1b[u", s / 3600, (s / 60) % 60, s % 60,
-//                   te / 1000, te % 1000, ec,
-//                   ti / 1000, ti % 1000, ic);
-//            fflush(nullptr);
-//            System::instance()->debugMsg(((s % 64) < 32) ? "#" : ".", 1);
-//        }
+        static unsigned int ps = -1;
+        System* sys = System::instance();
+        unsigned int s = sys->ns() / 10000000000LU;
+        if (s != ps)
+        {
+            ps = s;
+            uint32_t te = sys->timeInEvent() / 1000000;
+            uint32_t ti = sys->timeInInterrupt() / 1000000;
+            uint32_t ic = sys->interruptCount();
+            uint32_t ec = sys->eventCount();
+            printf("\x1b[s\x1b[;H%4u:%02u:%02u, %10lu.%03lus in %10lu Events, %10lu.%03lus in %10lu IRQs\x1b[K\x1b[u", s / 3600, (s / 60) % 60, s % 60,
+                   te / 1000, te % 1000, ec,
+                   ti / 1000, ti % 1000, ic);
+            fflush(nullptr);
+        }
     }
 }
 
@@ -381,6 +456,13 @@ void CommandInterpreter::printLine()
     }
     static const char* CLEAR_LINE = "\x1b[0K";
     mSerial.write(CLEAR_LINE, 4);
+    if (mLineLen != mCurserPos)
+    {
+        static const char* MOVE_CURSER_LEFT = "\x1b[%iD";
+        char buf[8];
+        int len = sprintf(buf, MOVE_CURSER_LEFT, mLineLen - mCurserPos);
+        mSerial.write(buf, len);
+    }
 }
 
 CommandInterpreter::Command *CommandInterpreter::findCommand(const char *name, unsigned int len, CommandInterpreter::Possibilities &possible)
@@ -465,7 +547,7 @@ unsigned int CommandInterpreter::findArguments(bool splitArgs)
     unsigned int argc = 1;
     char split = ' ';
     int argStart = 0, prevArgStart = 0;
-    for (unsigned int i = 0; i < mLineLen; ++i)
+    for (int i = 0; i < mLineLen; ++i)
     {
         prevArgStart = argStart;
         if (mLine[i] == split)
@@ -563,6 +645,22 @@ void CommandInterpreter::addToHistory(const char *line)
         }
     }
     mHistory.push(copy);
+}
+
+void CommandInterpreter::advanceCurser(int amount)
+{
+    if (mHistoryIndex != 0) copyHistory();
+    mCurserPos += amount;
+    if (mCurserPos < 0) mCurserPos = 0;
+    if (mCurserPos > mLineLen) mCurserPos = mLineLen;
+    printLine();
+}
+
+void CommandInterpreter::copyHistory()
+{
+    strcpy(mLine, mHistory[mHistoryIndex]);
+    mCurserPos = mLineLen = strlen(mHistory[mHistoryIndex]);
+    mHistoryIndex = 0;
 }
 
 

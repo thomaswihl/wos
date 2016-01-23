@@ -52,7 +52,7 @@ CmdRead::CmdRead() : Command(NAME, sizeof(NAME) / sizeof(NAME[0]), ARGV, sizeof(
 {
 }
 
-bool CmdRead::execute(CommandInterpreter &interpreter, int argc, const CommandInterpreter::Argument *argv)
+bool CmdRead::execute(CommandInterpreter &/*interpreter*/, int argc, const CommandInterpreter::Argument *argv)
 {
     unsigned int count = 1;
     if (argc == 3) count = argv[2].value.u;
@@ -93,7 +93,7 @@ CmdWrite::CmdWrite() : Command(NAME, sizeof(NAME) / sizeof(NAME[0]), ARGV, sizeo
 {
 }
 
-bool CmdWrite::execute(CommandInterpreter &interpreter, int argc, const CommandInterpreter::Argument *argv)
+bool CmdWrite::execute(CommandInterpreter &/*interpreter*/, int /*argc*/, const CommandInterpreter::Argument *argv)
 {
     switch (argv[0].value.s[1])
     {
@@ -115,7 +115,7 @@ CmdPin::CmdPin(Gpio **gpio, unsigned int gpioCount) : Command(NAME, sizeof(NAME)
 {
 }
 
-bool CmdPin::execute(CommandInterpreter &interpreter, int argc, const CommandInterpreter::Argument *argv)
+bool CmdPin::execute(CommandInterpreter &/*interpreter*/, int argc, const CommandInterpreter::Argument *argv)
 {
     if (argc == 2 && strcasecmp(argv[1].value.s, "all") == 0)
     {
@@ -162,7 +162,7 @@ CmdMeasureClock::CmdMeasureClock(ClockControl &clockControl, Timer &timer) : Com
 {
 }
 
-bool CmdMeasureClock::execute(CommandInterpreter &interpreter, int argc, const CommandInterpreter::Argument *argv)
+bool CmdMeasureClock::execute(CommandInterpreter &/*interpreter*/, int /*argc*/, const CommandInterpreter::Argument */*argv*/)
 {
     mClockControl.enable(ClockControl::Function::Tim11);
     mClockControl.setPrescaler(ClockControl::RtcHsePrescaler::by16);  // HSE_RTC = HSE / 16 = 500kHz
@@ -188,7 +188,7 @@ bool CmdMeasureClock::execute(CommandInterpreter &interpreter, int argc, const C
     return true;
 }
 
-void CmdMeasureClock::eventCallback(System::Event *event)
+void CmdMeasureClock::eventCallback(System::Event */*event*/)
 {
     ++mCount;
     if (mCount > 8)
