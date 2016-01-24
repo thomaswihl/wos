@@ -12,11 +12,10 @@ char const * const CmdRead::ARGV[] = { "Au:address", "Vou:count" };
 char const * const CmdWrite::NAME[] = { "write", "wb", "wh", "ww" };
 char const * const CmdWrite::ARGV[] = { "Au:address", "Vu:data" };
 
-char const * const CmdPin::NAME[] = { "pin" };
-char const * const CmdPin::ARGV[] = { "Ps:pin", "Vob:value" };
+char const * const CmdPin::NAME[] = { "pin", "pinc" };
+char const * const CmdPin::ARGV[] = { "Pos:pin", "Vob:value" };
 
 char const * const CmdMeasureClock::NAME[] = { "clock" };
-char const * const CmdMeasureClock::ARGV[] = { nullptr };
 
 
 CmdHelp::CmdHelp() : Command(NAME, sizeof(NAME) / sizeof(NAME[0]), ARGV, sizeof(ARGV) / sizeof(ARGV[0]))
@@ -117,16 +116,13 @@ CmdPin::CmdPin(Gpio **gpio, unsigned int gpioCount) : Command(NAME, sizeof(NAME)
 
 bool CmdPin::execute(CommandInterpreter &/*interpreter*/, int argc, const CommandInterpreter::Argument *argv)
 {
-    if (argc == 2 && strcasecmp(argv[1].value.s, "all") == 0)
+    bool config = false;
+    if (argv[0].value.s[3] == 'c') config = true;
+    if (argc == 1)
     {
         for (unsigned int index = 0; index < mGpioCount; ++index)
         {
-            printf("GPIO %c: ", 'A' + index);
-            for (int pin = 15; pin >= 0; --pin)
-            {
-                printf("%c", mGpio[index]->get(static_cast<Gpio::Index>(pin)) ? '1' : '0');
-            }
-            printf("\n");
+            printPort(index, config);
         }
         return true;
     }
@@ -138,27 +134,132 @@ bool CmdPin::execute(CommandInterpreter &/*interpreter*/, int argc, const Comman
         printf("Invalid GPIO, GPIO A-%c (or a-%c) is allowed.\n", 'A' + mGpioCount - 1, 'a' + mGpioCount - 1);
         return false;
     }
-    char* end;
-    unsigned int pin = strtoul(argv[1].value.s +1, &end, 10);
-    if (*end != 0 || pin > 15)
+    if (argv[1].value.s[1] == 0)
     {
-        printf("Invalid index, GPIO has only 16 pins, so 0-15 is allowed.\n");
-        return false;
-    }
-    if (argc == 2)
-    {
-        printf("GPIO %c%i = %c\n", 'A' + index, pin, mGpio[index]->get(static_cast<Gpio::Index>(pin)) ? '1' : '0');
+        printPort(index, config);
     }
     else
     {
-        if (argv[2].value.b) mGpio[index]->set(static_cast<Gpio::Index>(pin));
-        else mGpio[index]->reset(static_cast<Gpio::Index>(pin));
+        char* end;
+        unsigned int pin = strtoul(argv[1].value.s + 1, &end, 10);
+        if (*end != 0 || pin > 15)
+        {
+            printf("Invalid index, GPIO has only 16 pins, so 0-15 is allowed.\n");
+            return false;
+        }
+        if (argc == 2)
+        {
+            printf("GPIO %c%i: ", 'A' + index, pin);
+            if (config) printConfig(mGpio[index], pin);
+            else printValue(mGpio[index], pin);
+            printf("\n");
+        }
+        else
+        {
+            if (config)
+            {
+                printf("Sorry, can't configure pins.\n");
+            }
+            else
+            {
+                if (argv[2].value.b) mGpio[index]->set(static_cast<Gpio::Index>(pin));
+                else mGpio[index]->reset(static_cast<Gpio::Index>(pin));
+            }
+        }
     }
     return true;
 }
 
+const char *CmdPin::mode(Gpio::Mode mode)
+{
+    switch (mode)
+    {
+    case Gpio::Mode::Input: return "Input";
+    case Gpio::Mode::Output: return "Output";
+    case Gpio::Mode::Analog: return "Analog";
+    case Gpio::Mode::Alternate: return "Alternate";
+    }
+    return "UNKNOWN";
+}
 
-CmdMeasureClock::CmdMeasureClock(ClockControl &clockControl, Timer &timer) : Command(NAME, sizeof(NAME) / sizeof(NAME[0]), ARGV, sizeof(ARGV) / sizeof(ARGV[0])), mClockControl(clockControl), mTimer(timer), mEvent(*this), mCount(0)
+const char *CmdPin::speed(Gpio::Speed speed)
+{
+    switch (speed)
+    {
+    case Gpio::Speed::Low: return "Low";
+    case Gpio::Speed::Medium: return "Medium";
+    case Gpio::Speed::Fast: return "Fast";
+    case Gpio::Speed::High: return "High";
+    }
+    return "UNKNOWN";
+}
+
+const char *CmdPin::outputType(Gpio::OutputType outputType)
+{
+    switch (outputType)
+    {
+    case Gpio::OutputType::OpenDrain: return "Open Drain";
+    case Gpio::OutputType::PushPull: return "Push/Pull";
+    }
+    return "UNKNOWN";
+}
+
+const char *CmdPin::pull(Gpio::Pull pull)
+{
+    switch (pull)
+    {
+    case Gpio::Pull::None: return "None";
+    case Gpio::Pull::Up: return "Up";
+    case Gpio::Pull::Down: return "Down";
+    }
+    return "UNKNOWN";
+}
+
+void CmdPin::printPort(int index, bool config)
+{
+    printf("GPIO %c: ", 'A' + index);
+    for (int pin = 15; pin >= 0; --pin)
+    {
+        if (config)
+        {
+            printf("\n  %2i  ", pin);
+            printConfig(mGpio[index], pin);
+        }
+        else
+        {
+            printValue(mGpio[index], pin);
+            if ((pin % 4) == 0) printf(" ");
+        }
+    }
+    printf("\n");
+}
+
+void CmdPin::printValue(Gpio* gpio, unsigned int pin)
+{
+    printf("%c", gpio->get(static_cast<Gpio::Index>(pin)) ? '1' : '0');
+}
+
+void CmdPin::printConfig(Gpio *gpio, unsigned int pin)
+{
+    Gpio::Index i = static_cast<Gpio::Index>(pin);
+    Gpio::Mode m = gpio->mode(i);
+    printf("%s", mode(m));
+    if (m == Gpio::Mode::Output)
+    {
+        printf(": Speed = %s, Type = %s, Pull = %s", speed(gpio->speed(i)), outputType(gpio->outputType(i)), pull(gpio->pull(i)));
+    }
+    else if (m == Gpio::Mode::Input)
+    {
+        printf(": Pull = %s", pull(gpio->pull(i)));
+    }
+    else if (m == Gpio::Mode::Alternate)
+    {
+        printf(": Function = %i, Pull = %s", static_cast<int>(gpio->alternate(i)), pull(gpio->pull(i)));
+    }
+}
+
+
+CmdMeasureClock::CmdMeasureClock(ClockControl &clockControl, Timer &timer) : Command(NAME, sizeof(NAME) / sizeof(NAME[0]), nullptr, 0), mClockControl(clockControl), mTimer(timer), mEvent(*this), mCount(0)
 {
 }
 

@@ -63,6 +63,15 @@ private:
     static char const * const ARGV[];
     Gpio** mGpio;
     unsigned int mGpioCount;
+
+    const char* mode(Gpio::Mode mode);
+    const char* speed(Gpio::Speed speed);
+    const char* outputType(Gpio::OutputType outputType);
+    const char* pull(Gpio::Pull pull);
+
+    void printPort(int index, bool config);
+    void printValue(Gpio *gpio, unsigned int pin);
+    void printConfig(Gpio *gpio, unsigned int pin);
 };
 
 class CmdMeasureClock : public CommandInterpreter::Command, public System::Event::Callback

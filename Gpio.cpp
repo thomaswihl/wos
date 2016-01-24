@@ -64,10 +64,22 @@ void Gpio::setMode(Gpio::Index index, Gpio::Mode mode)
     mBase->MODER = (mBase->MODER & ~(3 << i)) | (static_cast<uint32_t>(mode) << i);
 }
 
+Gpio::Mode Gpio::mode(Gpio::Index index)
+{
+    uint32_t i = static_cast<int>(index) * 2;
+    return static_cast<Mode>((mBase->MODER >> i) & 3);
+}
+
 void Gpio::setOutputType(Gpio::Index index, Gpio::OutputType outputType)
 {
     uint32_t i = static_cast<int>(index);
     mBase->OTYPER = (mBase->OTYPER & ~(1 << i)) | (static_cast<uint32_t>(outputType) << i);
+}
+
+Gpio::OutputType Gpio::outputType(Gpio::Index index)
+{
+    uint32_t i = static_cast<int>(index);
+    return static_cast<OutputType>((mBase->OTYPER >> i) & 1);
 }
 
 void Gpio::setSpeed(Gpio::Index index, Gpio::Speed speed)
@@ -76,10 +88,22 @@ void Gpio::setSpeed(Gpio::Index index, Gpio::Speed speed)
     mBase->OSPEEDR = (mBase->OSPEEDR & ~(3 << i)) | (static_cast<uint32_t>(speed) << i);
 }
 
+Gpio::Speed Gpio::speed(Gpio::Index index)
+{
+    uint32_t i = static_cast<int>(index) * 2;
+    return static_cast<Speed>((mBase->OSPEEDR >> i) & 3);
+}
+
 void Gpio::setPull(Gpio::Index index, Gpio::Pull pull)
 {
     uint32_t i = static_cast<int>(index) * 2;
     mBase->PUPDR = (mBase->PUPDR & ~(3 << i)) | (static_cast<uint32_t>(pull) << i);
+}
+
+Gpio::Pull Gpio::pull(Gpio::Index index)
+{
+    uint32_t i = static_cast<int>(index) * 2;
+    return static_cast<Pull>((mBase->PUPDR >> i) & 3);
 }
 
 void Gpio::setAlternate(Gpio::Index index, Gpio::AltFunc altFunc)
@@ -88,6 +112,13 @@ void Gpio::setAlternate(Gpio::Index index, Gpio::AltFunc altFunc)
     if (i < 8) mBase->AFRL = (mBase->AFRL & ~(0xf << i * 4)) | (static_cast<uint32_t>(altFunc) << (i * 4));
     else mBase->AFRH = (mBase->AFRH & ~(0xf << (i- 8) * 4)) | (static_cast<uint32_t>(altFunc) << ((i - 8) * 4));
     setMode(index, Mode::Alternate);
+}
+
+Gpio::AltFunc Gpio::alternate(Gpio::Index index)
+{
+    int i = static_cast<int>(index);
+    if (i < 8) return static_cast<AltFunc>((mBase->AFRL >> (i * 4)) & 0xf);
+    else return static_cast<AltFunc>((mBase->AFRH >> ((i - 8) * 4)) & 0xf);
 }
 
 void Gpio::configInput(Gpio::Index index, Gpio::Pull pull)

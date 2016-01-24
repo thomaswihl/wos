@@ -103,10 +103,15 @@ public:
     void reset(uint16_t indices);
 
     void setMode(Index index, Mode mode);
+    Mode mode(Index index);
     void setOutputType(Index index, OutputType outputType);
+    OutputType outputType(Index index);
     void setSpeed(Index index, Speed speed);
+    Speed speed(Index index);
     void setPull(Index index, Pull pull);
+    Pull pull(Index index);
     void setAlternate(Index index, AltFunc altFunc);
+    AltFunc alternate(Index index);
 
     void configInput(Index index, Pull pull = Pull::None);
     void configOutput(Index index, OutputType outputType, Pull pull = Pull::None, Speed speed = Speed::Medium);

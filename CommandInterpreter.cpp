@@ -61,7 +61,15 @@ void CommandInterpreter::feed()
         case '\r':
         case '\n':
             mSerial.write("\r\n", 2);
-            if (mHistoryIndex != 0) copyHistory();
+            if (mHistoryIndex != 0)
+            {
+                copyHistory();
+            }
+            else
+            {
+                mLine[mLineLen] = 0;
+                addToHistory(mLine);
+            }
             execute();
             mLineLen = 0;
             mCurserPos = 0;
@@ -70,6 +78,7 @@ void CommandInterpreter::feed()
             break;
         case 8:
         case 127:
+            if (mHistoryIndex != 0) copyHistory();
             if (mCurserPos > 0)
             {
                 if (mLineLen != mCurserPos) memmove(mLine + mCurserPos - 1, mLine + mCurserPos, mLineLen - mCurserPos);
@@ -576,8 +585,6 @@ unsigned int CommandInterpreter::findArguments(bool splitArgs)
 
 void CommandInterpreter::execute()
 {
-    mLine[mLineLen] = 0;
-    addToHistory(mLine);
     // first we split our line into seperate strings (by replacing whitespace with binary 0)
     unsigned int argc = findArguments(true);
     if (mArguments[0].value.s[0] == 0) return;
@@ -586,11 +593,6 @@ void CommandInterpreter::execute()
     if (cmd == nullptr)
     {
         printf("Unknown command: %s", mArguments[0].value.s);
-//        const char* p = mArguments[0].value.s;
-//        while (*p != 0)
-//        {
-//            printf(" %02x", *p++);
-//        }
         printf(", try help.\n");
         return;
     }
@@ -598,7 +600,7 @@ void CommandInterpreter::execute()
     unsigned int minArgc = 1;
     bool failed = false;
     // If everything is fine so far we parse our arguments and check if they are valid.
-    for (unsigned int i = 1; i < argc; ++i)
+    for (unsigned int i = 1; i < argc && i < maxArgc; ++i)
     {
         mArguments[i].name = cmd->argument(i - 1);
         //printf("Parsing %s/%s: ", argv[i].name, argv[i].value.s);
