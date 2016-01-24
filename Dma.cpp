@@ -183,8 +183,10 @@ void Dma::Stream::interruptCallback(InterruptController::Index /*index*/)
     mDma.clearInterruptStatus(mStream, status);
     if (mCallback != nullptr)
     {
-        Callback::Reason reason = Callback::Reason::TransferComplete;
+        Callback::Reason reason = Callback::Reason::HalfTransferComplete;
+        if (status & TransferComplete) reason = Callback::Reason::TransferComplete;
         // someone cares about our result so lets find it
+
         bool fifoError = (status & FifoError) != 0;
         bool directModeError = (status & DirectModeError) != 0;
         bool transferError = (status & TransferError) != 0;
@@ -199,6 +201,7 @@ void Dma::Stream::interruptCallback(InterruptController::Index /*index*/)
 
         // A bus errror triggers this as well as a write to memory register during a transfer, pretty fatal.
         if (transferError) reason = Callback::Reason::DirectModeError;
+
         mCallback->dmaCallback(this, reason);
     }
 }
@@ -206,6 +209,11 @@ void Dma::Stream::interruptCallback(InterruptController::Index /*index*/)
 bool Dma::Stream::complete()
 {
     return mDma.mBase->STREAM[mStream].CR.BITS.EN == 0;
+}
+
+void Dma::Stream::enableHalfTransferComplete(bool enable)
+{
+    mStreamConfig.BITS.HTIE = enable ? 1 : 0;
 }
 
 void Dma::Stream::setTransferCount(uint16_t count)

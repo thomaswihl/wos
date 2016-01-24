@@ -3,20 +3,22 @@
 Stream::Stream(System::BaseAddress base, ClockControl *clockControl, ClockControl::Clock clock, unsigned transmitBufferSize, unsigned receiveBufferSize) :
     Serial(base, clockControl, clock),
     mWriteFifo(transmitBufferSize),
-    mReadFifo(receiveBufferSize)
+    mReadFifo(receiveBufferSize),
+    mLastTransferCount(receiveBufferSize)
 {
-    memset(&mReadRequest, 0, sizeof(mReadRequest));
+    clearReadRequest();
 }
 
 void Stream::configStream(Dma::Stream *write, Dma::Stream *read, InterruptController::Line *interrupt)
 {
     Serial::configDma(write, read);
     Serial::configInterrupt(interrupt);
-    enableInterrupt(Interrupt::DataRead);
+    enableInterrupt(Interrupt::Idle);
     // Serial configures the DMA's we need to set it circular and start it
     read->setCircular(true);
     read->setAddress(Dma::Stream::End::Memory0, (System::BaseAddress)mReadFifo.writePointer());
     read->setTransferCount(mReadFifo.size());
+    read->enableHalfTransferComplete();
     read->start();
 }
 
@@ -32,9 +34,16 @@ int Stream::read(char *data, unsigned len)
 int Stream::read(char *data, unsigned len, System::Event *event)
 {
     if (event == nullptr || mReadFifo.used() >= len) return read(data, len);
-    mReadRequest.data = data;
-    mReadRequest.len = len;
+    event->setResult(System::Event::Result::Success);
     mReadRequest.event = event;
+    mReadRequest.len = len;
+    mReadRequest.data = data;
+    if (mReadFifo.used() >= len && mReadRequest.event != nullptr)
+    {
+        // We had an interrupt between the first check and and before setting the data pointer
+        clearReadRequest();
+        return read(data, len);
+    }
     return 0;
 }
 
@@ -77,26 +86,43 @@ void Stream::dmaWriteComplete()
     nextDmaWrite();
 }
 
-void Stream::error(System::Event::Result)
+void Stream::interrupt(Serial::Interrupt irq)
 {
-
+    switch (irq)
+    {
+    case Serial::Interrupt::Idle:
+    case Serial::Interrupt::DataReadByDma:
+        dataReadByDma();
+        break;
+    case Serial::Interrupt::TransmitDataEmpty:
+    case Serial::Interrupt::TransmitComplete:
+    case Serial::Interrupt::DataRead:
+        break;
+    }
 }
 
-void Stream::dataRead(uint32_t data)
+void Stream::error(System::Event::Result result)
 {
+    if (mReadRequest.event != nullptr) mReadRequest.event->setResult(result);
 }
 
 void Stream::dataReadByDma()
 {
-    mReadFifo.setWritePointer(mReadFifo.bufferPointer() + (mReadFifo.size() - mDmaRead->currentTransferCount()));
+    int current = mDmaRead->currentTransferCount();
+    int delta = mLastTransferCount - current;
+    if (delta < 0)
+    {
+        delta += mReadFifo.size();
+    }
+    mLastTransferCount = current;
+    mReadFifo.add(delta);
     if (mReadRequest.data != nullptr)
     {
         unsigned len = mReadFifo.read(mReadRequest.data, mReadRequest.len);
         if (len == mReadRequest.len)
         {
-            mReadRequest.event->setResult(System::Event::Result::Success);
             System::instance()->postEvent(mReadRequest.event);
-            memset(&mReadRequest, 0, sizeof(mReadRequest));
+            clearReadRequest();
         }
         else
         {
@@ -104,10 +130,6 @@ void Stream::dataReadByDma()
             mReadRequest.len -= len;
         }
     }
-}
-
-void Stream::transmitComplete()
-{
 }
 
 void Stream::transmitDataEmpty()

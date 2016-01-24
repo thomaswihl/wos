@@ -32,7 +32,9 @@ public:
     virtual void enable(Part part) = 0;
     virtual void disable(Part part) = 0;
     virtual void dmaReadComplete() = 0;
+    virtual void dmaReadHalfComplete() { }
     virtual void dmaWriteComplete() = 0;
+    virtual void dmaWriteHalfComplete() { }
 
     virtual void configDma(Dma::Stream* write, Dma::Stream* read);
     virtual void configInterrupt(InterruptController::Line* interrupt);

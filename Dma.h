@@ -27,7 +27,7 @@
 class Dma
 {
 public:
-    enum InterruptFlag { FifoError = 1, DirectModeError = 4, TransferError = 8, HalfTransfer = 16, TransferComplete = 32 };
+    enum InterruptFlag { FifoError = 1, DirectModeError = 4, TransferError = 8, HalfTransferComplete = 16, TransferComplete = 32 };
     Dma(unsigned int base);
 
 private:
@@ -111,7 +111,7 @@ public:
         class Callback
         {
         public:
-            enum class Reason { TransferComplete, TransferError, FifoError, DirectModeError };
+            enum class Reason { TransferComplete, TransferError, FifoError, DirectModeError, HalfTransferComplete };
             Callback() { }
             virtual ~Callback() { }
             virtual void dmaCallback(Stream* stream, Reason reason) = 0;
@@ -144,6 +144,7 @@ public:
         virtual void interruptCallback(InterruptController::Index index);
 
         bool complete();
+        void enableHalfTransferComplete(bool enable = true);
 
     private:
         Dma& mDma;

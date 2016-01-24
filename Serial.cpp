@@ -128,7 +128,9 @@ void Serial::enableInterrupt(Interrupt irq, bool enable)
     {
     case Interrupt::TransmitDataEmpty: mBase->CR1.TXEIE = enable ? 1 : 0; break;
     case Interrupt::TransmitComplete: mBase->CR1.TCIE = enable ? 1 : 0; break;
+    case Interrupt::DataReadByDma:
     case Interrupt::DataRead: mBase->CR1.RXNEIE = enable ? 1 : 0; break;
+    case Interrupt::Idle: mBase->CR1.IDLEIE = enable ? 1 : 0; break;
     }
 }
 
@@ -138,7 +140,9 @@ bool Serial::isInterruptEnabled(Serial::Interrupt irq)
     {
     case Interrupt::TransmitDataEmpty: return mBase->CR1.TXEIE;
     case Interrupt::TransmitComplete: return mBase->CR1.TCIE;
+    case Interrupt::DataReadByDma: /* fall through */
     case Interrupt::DataRead: return mBase->CR1.RXNEIE;
+    case Interrupt::Idle: return mBase->CR1.IDLEIE;
     }
     return false;
 }
@@ -245,20 +249,28 @@ void Serial::interruptCallback(InterruptController::Index /*index*/)
     }
     if (sr.bits.RXNE && mBase->CR1.RXNEIE)
     {
-        dataRead(mBase->DR);
+        interrupt(Interrupt::DataRead);
         any = true;
     }
     if (sr.bits.TXE && mBase->CR1.TXEIE)
     {
-        transmitDataEmpty();
+        interrupt(Interrupt::TransmitDataEmpty);
         any = true;
     }
     if (sr.bits.TC && mBase->CR1.TCIE)
     {
-        transmitComplete();
+        interrupt(Interrupt::TransmitComplete);
         any = true;
     }
-    if (!any) dataReadByDma();
+    if (sr.bits.IDLE && mBase->CR1.IDLEIE)
+    {
+        // we have to read the data to clear the idle bit
+        (void)mBase->DR;
+        interrupt(Interrupt::Idle);
+        any = true;
+    }
+    if (!any) interrupt(Interrupt::DataReadByDma);
+
 }
 
 void Serial::clockCallback(ClockControl::Callback::Reason reason, uint32_t /*newClock*/)

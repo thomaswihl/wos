@@ -35,7 +35,7 @@ public:
     enum class Parity { None, Even, Odd };
     enum class StopBits { One, Half, Two, OneAndHalf };
     enum class HardwareFlowControl { None, Cts, Rts, CtsRts };
-    enum class Interrupt { TransmitDataEmpty, TransmitComplete, DataRead };
+    enum class Interrupt { TransmitDataEmpty, TransmitComplete, DataRead, Idle, DataReadByDma };
 
     Serial(System::BaseAddress base, ClockControl* clockControl, ClockControl::Clock clock);
     virtual ~Serial();
@@ -68,10 +68,7 @@ protected:
     virtual void interruptCallback(InterruptController::Index index);
 
     virtual void error(System::Event::Result) = 0;
-    virtual void dataRead(uint32_t data) = 0;
-    virtual void dataReadByDma() = 0;
-    virtual void transmitComplete() = 0;
-    virtual void transmitDataEmpty() = 0;
+    virtual void interrupt(Interrupt irq) = 0;
 
 private:
     union __SR

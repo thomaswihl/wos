@@ -53,23 +53,26 @@ void Device::dmaCallback(Dma::Stream* stream, Dma::Stream::Callback::Reason reas
 {
     if (stream == mDmaWrite)
     {
-        if (reason != Dma::Stream::Callback::Reason::TransferComplete)
+        if (reason == Dma::Stream::Callback::Reason::TransferComplete) dmaWriteComplete();
+        else if (reason == Dma::Stream::Callback::Reason::HalfTransferComplete) dmaWriteHalfComplete();
+        else
         {
             // Ooops something went wrong (probably our configuration, anyway, disable DMA.
             configDma(nullptr, mDmaRead);
             System::instance()->printError("Device", "DMA write transfer failed");
         }
-        dmaWriteComplete();
+
     }
     else if (stream == mDmaRead)
     {
-        if (reason != Dma::Stream::Callback::Reason::TransferComplete)
+        if (reason == Dma::Stream::Callback::Reason::TransferComplete) dmaReadComplete();
+        else if (reason == Dma::Stream::Callback::Reason::HalfTransferComplete) dmaReadHalfComplete();
+        else
         {
             // Ooops something went wrong (probably our configuration, anyway, disable DMA.
             configDma(mDmaWrite, nullptr);
             System::instance()->printError("Device", "DMA read transfer failed");
         }
-        dmaReadComplete();
     }
 }
 

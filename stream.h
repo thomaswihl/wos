@@ -20,6 +20,7 @@ public:
 private:
     CircularBuffer<char> mWriteFifo;
     CircularBuffer<char> mReadFifo;
+    int mLastTransferCount;
 
     struct Request
     {
@@ -33,15 +34,15 @@ private:
     void nextDmaWrite();
 
     // Device interface
-    void dmaReadComplete();
-    void dmaWriteComplete();
+    void dmaReadComplete() override;
+    void dmaWriteComplete() override;
 
     // Serial interface
-    void error(System::Event::Result);
-    void dataRead(uint32_t data);
+    virtual void interrupt(Interrupt irq) override;
+    void error(System::Event::Result result);
     void dataReadByDma();
-    void transmitComplete();
     void transmitDataEmpty();
+    inline void clearReadRequest() { memset(&mReadRequest, 0, sizeof(mReadRequest)); }
 };
 
 #endif // STREAM_H

@@ -42,13 +42,12 @@ public:
     T operator[](int index);
 
     T *writePointer();
-    void setWritePointer(T* addr);
     T* readPointer();
-    void setReadPointer(T* addr);
     T* bufferPointer();
 
     unsigned int getContBuffer(const T*& data);
     unsigned int skip(unsigned int len);
+    unsigned int add(unsigned int len);
     void clear();
 
 protected:
