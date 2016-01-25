@@ -1,7 +1,7 @@
 #include "i2c.h"
 #include "stdio.h"
 
-I2C::I2C(System::BaseAddress base, ClockControl *clockControl, ClockControl::Clock clock) :
+I2C::I2C(System::BaseAddress base, ClockControl *clockControl, ClockControl::ClockSpeed clock) :
     mBase(reinterpret_cast<volatile IIC*>(base)),
     mClockControl(clockControl),
     mClock(clock),

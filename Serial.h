@@ -37,7 +37,7 @@ public:
     enum class HardwareFlowControl { None, Cts, Rts, CtsRts };
     enum class Interrupt { TransmitDataEmpty, TransmitComplete, DataRead, Idle, DataReadByDma };
 
-    Serial(System::BaseAddress base, ClockControl* clockControl, ClockControl::Clock clock);
+    Serial(System::BaseAddress base, ClockControl* clockControl, ClockControl::ClockSpeed clock);
     virtual ~Serial();
 
     void setSpeed(uint32_t speed);
@@ -161,7 +161,7 @@ private:
 
     volatile USART* mBase;
     ClockControl* mClockControl;
-    ClockControl::Clock mClock;
+    ClockControl::ClockSpeed mClock;
     uint32_t mSpeed;
 
 };

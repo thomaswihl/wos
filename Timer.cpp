@@ -20,7 +20,7 @@
 
 #include <cassert>
 
-Timer::Timer(System::BaseAddress base, ClockControl::Clock clock) :
+Timer::Timer(System::BaseAddress base, ClockControl::ClockSpeed clock) :
     mBase(reinterpret_cast<volatile TIMER*>(base)),
     mClock(clock)
 {
@@ -159,7 +159,7 @@ void Timer::configCapture(Timer::CaptureCompareIndex index, Timer::Prescaler pre
 
     shift = static_cast<uint16_t>(index) * 4;
     uint16_t andmask = ~(static_cast<uint16_t>(CaptureEdge::Both) << shift);
-    uint16_t ormask = static_cast<uint16_t>(edge) << shift;
+    uint16_t ormask = (static_cast<uint16_t>(edge) | 1) << shift;
     mBase->CCER = (mBase->CCER & andmask) | ormask;
 }
 

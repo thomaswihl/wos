@@ -7,7 +7,7 @@
 class Stream : public Serial
 {
 public:
-    Stream(System::BaseAddress base, ClockControl *clockControl, ClockControl::Clock clock, unsigned transmitBufferSize, unsigned receiveBufferSize);
+    Stream(System::BaseAddress base, ClockControl *clockControl, ClockControl::ClockSpeed clock, unsigned transmitBufferSize, unsigned receiveBufferSize);
     virtual ~Stream() { }
 
     void configStream(Dma::Stream *write, Dma::Stream *read, InterruptController::Line* interrupt);

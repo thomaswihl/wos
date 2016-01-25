@@ -104,11 +104,50 @@ void ClockControl::disable(ClockControl::Function function)
     mBase->LowPowerEnable[index] &= ~(1 << offset);
 }
 
-void ClockControl::enableRtc(RtcClock clock)
+void ClockControl::enableRtc(Power& pwr, RtcClock clock)
 {
+    bool wp = pwr.backupDomainWp();
+    if (wp) pwr.setBackupDomainWp(false);
     mBase->BDCR.RTCSEL = static_cast<uint32_t>(clock);
     if (clock == RtcClock::HighSpeedExternal) mBase->CR.HSEON = 1;
     mBase->BDCR.RTCEN = 1;
+    if (wp) pwr.setBackupDomainWp(true);
+}
+
+void ClockControl::enableClock(Clock clock, bool enable, Power* pwr)
+{
+    switch (clock)
+    {
+    case Clock::LowSpeedExternal:
+    {
+        if (pwr == nullptr)
+        {
+
+        }
+        else
+        {
+            bool wp = pwr->backupDomainWp();
+            if (wp) pwr->setBackupDomainWp(false);
+            mBase->BDCR.LSEON = enable ? 1 : 0;
+            if (wp) pwr->setBackupDomainWp(true);
+        }
+    }   break;
+    case Clock::LowSpeedInternal: mBase->CSR.CSR.LSION = enable ? 1 : 0; break;
+    case Clock::HighSpeedExternal: mBase->CR.HSEON = enable ? 1 : 0; break;
+    case Clock::HighSpeedInternal: mBase->CR.HSION = enable ? 1 : 0; break;
+    }
+}
+
+bool ClockControl::isClockReady(Clock clock)
+{
+    switch (clock)
+    {
+    case Clock::LowSpeedExternal: return mBase->BDCR.LSERDY;
+    case Clock::LowSpeedInternal: return mBase->CSR.CSR.LSIRDY;
+    case Clock::HighSpeedExternal: return mBase->CR.HSERDY;
+    case Clock::HighSpeedInternal: return mBase->CR.HSIRDY;
+    }
+    return false;
 }
 
 bool ClockControl::setSystemClock(uint32_t clock)
@@ -167,7 +206,7 @@ bool ClockControl::setSystemClock(uint32_t clock)
     return true;
 }
 
-uint32_t ClockControl::clock(Clock clock) const
+uint32_t ClockControl::clock(ClockSpeed clock) const
 {
     uint32_t systemClock = 0;
     switch (mBase->CFGR.SWS)
@@ -195,11 +234,11 @@ uint32_t ClockControl::clock(Clock clock) const
     uint32_t ahbClock = systemClock >> std::max(0, static_cast<int>(mBase->CFGR.PPRE2) - 7);
     switch (clock)
     {
-    case Clock::System: return systemClock;
-    case Clock::AHB: return ahbClock;
-    case Clock::APB1: return ahbClock >> std::max(0, static_cast<int>(mBase->CFGR.PPRE1) - 3);
-    case Clock::APB2: return ahbClock >> std::max(0, static_cast<int>(mBase->CFGR.PPRE2) - 3);
-    case Clock::RTC: return rtcClock();
+    case ClockSpeed::System: return systemClock;
+    case ClockSpeed::AHB: return ahbClock;
+    case ClockSpeed::APB1: return ahbClock >> std::max(0, static_cast<int>(mBase->CFGR.PPRE1) - 3);
+    case ClockSpeed::APB2: return ahbClock >> std::max(0, static_cast<int>(mBase->CFGR.PPRE2) - 3);
+    case ClockSpeed::RTC: return rtcClock();
     }
     return 0;
 }
@@ -241,6 +280,42 @@ template<>
 void ClockControl::setPrescaler(Mco2Prescaler prescaler)
 {
     mBase->CFGR.MCO2PRE = static_cast<uint32_t>(prescaler);
+}
+
+template<>
+ClockControl::AhbPrescaler ClockControl::prescaler()
+{
+    return static_cast<AhbPrescaler>(mBase->CFGR.HPRE);
+}
+
+template<>
+ClockControl::Apb1Prescaler ClockControl::prescaler()
+{
+    return static_cast<Apb1Prescaler>(mBase->CFGR.PPRE1);
+}
+
+template<>
+ClockControl::Apb2Prescaler ClockControl::prescaler()
+{
+    return static_cast<Apb2Prescaler>(mBase->CFGR.PPRE2);
+}
+
+template<>
+ClockControl::RtcHsePrescaler ClockControl::prescaler()
+{
+    return static_cast<RtcHsePrescaler>(mBase->CFGR.RTCPRE);
+}
+
+template<>
+ClockControl::Mco1Prescaler ClockControl::prescaler()
+{
+    return static_cast<Mco1Prescaler>(mBase->CFGR.MCO1PRE);
+}
+
+template<>
+ClockControl::Mco2Prescaler ClockControl::prescaler()
+{
+    return static_cast<Mco2Prescaler>(mBase->CFGR.MCO2PRE);
 }
 
 bool ClockControl::getPllConfig(uint32_t clock, uint32_t &div, uint32_t &mul)

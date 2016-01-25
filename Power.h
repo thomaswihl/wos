@@ -8,7 +8,8 @@ class Power
 public:
     Power(System::BaseAddress base);
 
-    void backupDomainWp(bool enable);
+    void setBackupDomainWp(bool enable);
+    bool backupDomainWp();
 private:
     struct PWR
     {

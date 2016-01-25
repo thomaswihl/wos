@@ -1,7 +1,7 @@
 #include "Spi.h"
 
 
-Spi::Spi(System::BaseAddress base, ClockControl *clockControl, ClockControl::Clock clock) :
+Spi::Spi(System::BaseAddress base, ClockControl *clockControl, ClockControl::ClockSpeed clock) :
     mBase(reinterpret_cast<volatile SPI*>(base)),
     mClockControl(clockControl),
     mClock(clock),

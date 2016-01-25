@@ -49,7 +49,7 @@ public:
     };
 
 
-    I2C(System::BaseAddress base, ClockControl* clockControl, ClockControl::Clock clock);
+    I2C(System::BaseAddress base, ClockControl* clockControl, ClockControl::ClockSpeed clock);
 
     void enable(Part part);
     void disable(Part part);
@@ -167,7 +167,7 @@ private:
     };
     volatile IIC* mBase;
     ClockControl* mClockControl;
-    ClockControl::Clock mClock;
+    ClockControl::ClockSpeed mClock;
     CircularBuffer<Transfer*> mTransferBuffer;
     InterruptController::Line *mEvent;
     InterruptController::Line *mError;

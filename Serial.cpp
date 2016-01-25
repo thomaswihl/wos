@@ -21,7 +21,7 @@
 #include <cassert>
 #include <cstdio>
 
-Serial::Serial(System::BaseAddress base, ClockControl *clockControl, ClockControl::Clock clock) :
+Serial::Serial(System::BaseAddress base, ClockControl *clockControl, ClockControl::ClockSpeed clock) :
     mBase(reinterpret_cast<volatile USART*>(base)),
     mClockControl(clockControl),
     mClock(clock),

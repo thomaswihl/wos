@@ -20,6 +20,7 @@
 #define CLOCKCONTROL_H
 
 #include "System.h"
+#include "Power.h"
 
 #include <vector>
 
@@ -44,7 +45,7 @@ public:
     {
         enum Reason { LowPower = 0x80000000, WindowWatchdog = 0x40000000, IndependentWatchdog = 0x20000000, Software = 0x10000000, PowerOn = 0x08000000, Pin = 0x04000000, BrownOut = 0x02000000 };
     };
-    enum class Clock { System, AHB, APB1, APB2, RTC };
+    enum class ClockSpeed { System, AHB, APB1, APB2, RTC };
     enum class AhbPrescaler { by1 = 0, by2 = 8, by4 = 9, by8 = 10, by16 = 11, by64 = 12, by128 = 13, by256 = 14, by512 = 15 };
     enum class Apb1Prescaler { by1 = 0, by2 = 4, by4 = 5, by8 = 6, by16 = 7 };
     enum class Apb2Prescaler { by1 = 0, by2 = 4, by4 = 5, by8 = 6, by16 = 7 };
@@ -55,6 +56,7 @@ public:
     enum class Mco1Prescaler { by1 = 0, by2 = 4, by3 = 5, by4 = 6, by5 = 7 };
     enum class Mco2Prescaler { by1 = 0, by2 = 4, by3 = 5, by4 = 6, by5 = 7 };
     enum class RtcClock { None = 0, LowSpeedExternal = 1, LowSpeedInternal = 2, HighSpeedExternal = 3 };
+    enum class Clock { LowSpeedExternal, LowSpeedInternal, HighSpeedExternal, HighSpeedInternal };
 
     ClockControl(System::BaseAddress base, uint32_t externalClock);
     ~ClockControl();
@@ -63,9 +65,11 @@ public:
     void removeChangeHandler(Callback* changeHandler);
 
     bool setSystemClock(uint32_t clock);
-    uint32_t clock(Clock clock) const;
+    uint32_t clock(ClockSpeed clock) const;
     template<class T>
     void setPrescaler(T prescaler);
+    template<class T>
+    T prescaler();
 
     void resetClock();
     void reset();
@@ -74,7 +78,9 @@ public:
     void enable(Function function, bool inLowPower = true);
     void disable(Function function);
 
-    void enableRtc(RtcClock clock);
+    void enableRtc(Power &pwr, RtcClock clock);
+    void enableClock(Clock clock, bool enable = true, Power* pwr = nullptr);
+    bool isClockReady(Clock clock);
 
 private:
     enum

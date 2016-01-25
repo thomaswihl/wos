@@ -6,7 +6,12 @@ Power::Power(System::BaseAddress base) :
     static_assert(sizeof(PWR) == 0x8, "Struct has wrong size, compiler problem.");
 }
 
-void Power::backupDomainWp(bool enable)
+void Power::setBackupDomainWp(bool enable)
 {
     mBase->CR.DBP = enable ? 0 : 1;
+}
+
+bool Power::backupDomainWp()
+{
+    return mBase->CR.DBP;
 }

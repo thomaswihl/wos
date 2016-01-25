@@ -71,8 +71,8 @@ extern void (* const gIsrVectorTable[])(void);
 __attribute__ ((section(".isr_vector_table")))
 void (* const gIsrVectorTable[])(void) = {
         // 16 trap functions for ARM
-        (void (* const)())&__stack_end, (void (* const)())&_start, 0, 0, 0, 0, 0, 0,
-0, 0, 0, 0, 0, 0, 0, SysTick,
+        (void (* const)())&__stack_end, (void (* const)())&_start, Trap, Trap, Trap, Trap, Trap, 0,
+0, 0, 0, Trap, Trap, 0, Trap, SysTick,
 // 82 hardware interrupts specific to the STM32F407
 Isr, Isr, Isr, Isr, Isr, Isr, Isr, Isr, Isr, Isr,
 Isr, Isr, Isr, Isr, Isr, Isr, Isr, Isr, Isr, Isr,

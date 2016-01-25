@@ -259,32 +259,95 @@ void CmdPin::printConfig(Gpio *gpio, unsigned int pin)
 }
 
 
-CmdMeasureClock::CmdMeasureClock(ClockControl &clockControl, Timer &timer) : Command(NAME, sizeof(NAME) / sizeof(NAME[0]), nullptr, 0), mClockControl(clockControl), mTimer(timer), mEvent(*this), mCount(0)
+CmdMeasureClock::CmdMeasureClock(ClockControl &clockControl, Timer &timer5) : Command(NAME, sizeof(NAME) / sizeof(NAME[0]), nullptr, 0), mClockControl(clockControl), mTimer(timer5), mEvent(*this), mCount(0)
 {
 }
 
 bool CmdMeasureClock::execute(CommandInterpreter &/*interpreter*/, int /*argc*/, const CommandInterpreter::Argument */*argv*/)
 {
-    mClockControl.enable(ClockControl::Function::Tim11);
-    mClockControl.setPrescaler(ClockControl::RtcHsePrescaler::by16);  // HSE_RTC = HSE / 16 = 500kHz
-    // Timer 11 capture input = HSE_RTC / 8 = 62500Hz
-    mTimer.configCapture(Timer::CaptureCompareIndex::Index1, Timer::Prescaler::Every8, Timer::Filter::F1N1, Timer::CaptureEdge::Rising);
-    // So with HSI = 16MHz -> TIM_CLK = 32MHz this should give us 512 counts
-    mTimer.setOption(Timer::Option::Timer11_Input1_Hse_Rtc);
-    mTimer.setEvent(Timer::EventType::CaptureCompare1, &mEvent);
-    mTimer.enable();
-    //for (int i = 0; i < 5; ++i)
+    if (true)
     {
-        uint32_t first = mTimer.capture(Timer::CaptureCompareIndex::Index1);
+        mClockControl.enable(ClockControl::Function::Tim5);
+        mClockControl.enable(ClockControl::Function::Pwr);
+        mClockControl.enableClock(ClockControl::Clock::LowSpeedInternal);
+        while (!mClockControl.isClockReady(ClockControl::Clock::LowSpeedInternal))
+        { }
+        mTimer.setCountMode(Timer::CountMode::Up);
+        mTimer.setCounter(0);
+        mTimer.setReload(-1);
+        mTimer.setPrescaler(0);
+        mTimer.configCapture(Timer::CaptureCompareIndex::Index4, Timer::Prescaler::EveryEdge, Timer::Filter::F1N1, Timer::CaptureEdge::Rising);
+        mTimer.setOption(Timer::Option::Timer5_Input4_Lsi);
+        mTimer.setEvent(Timer::EventType::CaptureCompare1, &mEvent);
+        ClockControl::AhbPrescaler ahb = mClockControl.prescaler<ClockControl::AhbPrescaler>();
+        ClockControl::Apb1Prescaler apb1 = mClockControl.prescaler<ClockControl::Apb1Prescaler>();
+        unsigned prescaler = 1;
+        switch (ahb)
+        {
+        case ClockControl::AhbPrescaler::by1: prescaler = 1; break;
+        case ClockControl::AhbPrescaler::by2: prescaler = 2; break;
+        case ClockControl::AhbPrescaler::by4: prescaler = 4; break;
+        case ClockControl::AhbPrescaler::by8: prescaler = 8; break;
+        case ClockControl::AhbPrescaler::by16: prescaler = 16; break;
+        case ClockControl::AhbPrescaler::by64: prescaler = 64; break;
+        case ClockControl::AhbPrescaler::by128: prescaler = 128; break;
+        case ClockControl::AhbPrescaler::by256: prescaler = 256; break;
+        case ClockControl::AhbPrescaler::by512: prescaler = 512; break;
+        }
+        switch (apb1)
+        {
+        case ClockControl::Apb1Prescaler::by1: prescaler *= 1; break;
+            // Timer clock is x2 in case of prescaler >1, therfore x2 /2 = *1
+        case ClockControl::Apb1Prescaler::by2: prescaler *= 1; break;
+        case ClockControl::Apb1Prescaler::by4: prescaler *= 2; break;
+        case ClockControl::Apb1Prescaler::by8: prescaler *= 4; break;
+        case ClockControl::Apb1Prescaler::by16: prescaler *= 8; break;
+        }
+
+        mTimer.enable();
+        uint32_t first = mTimer.capture(Timer::CaptureCompareIndex::Index4);
         uint32_t second;
         do
         {
-            second = mTimer.capture(Timer::CaptureCompareIndex::Index1);
+            second = mTimer.capture(Timer::CaptureCompareIndex::Index4);
         }   while (second == first);
-        uint32_t delta;
-        if (second > first) delta = second - first;
-        else delta = 65536 + second - first;
-        printf("External high speed clock (HSE) is approximatly %luMHz (TIM11 CC = %lu).\n", 16 * 16 * 8 / delta, delta);
+        for (int i = 0; i < 1; ++i)
+        {
+            first = second;
+            do
+            {
+                second = mTimer.capture(Timer::CaptureCompareIndex::Index4);
+            }   while (second == first);
+            int32_t delta;
+            if (second > first) delta = second - first;
+            else delta = second - first;
+            printf("External high speed clock (HSE) is approximatly %liMHz (TIM11 CC = %li).\n", delta * 32000 * prescaler, delta);
+        }
+        //mTimer.disable();
+    }
+    else
+    {
+        mClockControl.enable(ClockControl::Function::Tim11);
+        mClockControl.setPrescaler(ClockControl::RtcHsePrescaler::by16);  // HSE_RTC = HSE / 16 = 500kHz
+        // Timer 11 capture input = HSE_RTC / 8 = 62500Hz
+        mTimer.configCapture(Timer::CaptureCompareIndex::Index1, Timer::Prescaler::Every8, Timer::Filter::F1N1, Timer::CaptureEdge::Rising);
+        // So with HSI = 16MHz -> TIM_CLK = 32MHz this should give us 512 counts
+        mTimer.setOption(Timer::Option::Timer11_Input1_Hse_Rtc);
+        mTimer.setEvent(Timer::EventType::CaptureCompare1, &mEvent);
+        mTimer.enable();
+        //for (int i = 0; i < 5; ++i)
+        {
+            uint32_t first = mTimer.capture(Timer::CaptureCompareIndex::Index1);
+            uint32_t second;
+            do
+            {
+                second = mTimer.capture(Timer::CaptureCompareIndex::Index1);
+            }   while (second == first);
+            uint32_t delta;
+            if (second > first) delta = second - first;
+            else delta = 65536 + second - first;
+            printf("External high speed clock (HSE) is approximatly %luMHz (TIM11 CC = %lu).\n", 16 * 16 * 8 / delta, delta);
+        }
     }
     return true;
 }

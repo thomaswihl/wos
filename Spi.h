@@ -53,7 +53,7 @@ public:
         Spi& mSpi;
     };
 
-    Spi(System::BaseAddress base, ClockControl* clockControl, ClockControl::Clock clock);
+    Spi(System::BaseAddress base, ClockControl* clockControl, ClockControl::ClockSpeed clock);
 
     void setMasterSlave(MasterSlave masterSlave);
 
@@ -151,7 +151,7 @@ private:
     };
     volatile SPI* mBase;
     ClockControl* mClockControl;
-    ClockControl::Clock mClock;
+    ClockControl::ClockSpeed mClock;
     uint32_t mSpeed;
     CircularBuffer<Transfer*> mTransferBuffer;
 

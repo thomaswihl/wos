@@ -77,7 +77,7 @@ private:
 class CmdMeasureClock : public CommandInterpreter::Command, public System::Event::Callback
 {
 public:
-    CmdMeasureClock(ClockControl& clockControl, Timer& timer);
+    CmdMeasureClock(ClockControl& clockControl, Timer& timer5);
     virtual bool execute(CommandInterpreter& interpreter, int argc, const CommandInterpreter::Argument* argv);
     virtual const char* helpText() const { return "Measure external clock (HSE)."; }
 protected:

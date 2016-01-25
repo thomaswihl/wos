@@ -46,7 +46,7 @@ public:
     enum class CompareMode { Inactive, ActiveWhenEqual, InactiveWhenEqual, ToggleWhenEqual, ForcedInactive, ForcedActive, PwmActiveWhenLower, PwmActiveWhenHigher };
     enum class CompareOutput { Disabled = 0, ActiveHigh = 1, ActiveLow = 3 };
     enum class CaptureCompareIndex { Index1 = 0, Index2 = 1, Index3 = 2, Index4 = 3 };
-    enum class Option { Timer11_Input1_Gpio = 0, Timer11_Input1_Hse_Rtc = 2 };
+    enum class Option { Timer11_Input1_Gpio = 0, Timer11_Input1_Hse_Rtc = 2, Timer5_Input4_Gpio = 0, Timer5_Input4_Lsi = 0x40, Timer5_Input4_Lse = 0x80, Timer5_Input4_Rtc_Out = 0xc0 };
     enum class EventType { Update, CaptureCompare1, CaptureCompare2, CaptureCompare3, CaptureCompare4 };
     enum class InterruptType { Update, CaptureCompare, Commutation, Trigger, Break };
     enum class CountMode { Up, Down, CenterAlignedDown, CenterAlignedUp, CenterAlignedUpDown };
@@ -54,11 +54,11 @@ public:
     enum class SlaveMode { Disabled = 0, Encoder1, Encoder2, Encoder3, Reset, Gated, Trigger, ExternalClock };
     enum class Trigger { Internal0, Internal1, Internal2, Internal3, EdgeDetector, FilteredInput1, FilteredInput2, External };
 
-    Timer(System::BaseAddress base, ClockControl::Clock clock);
+    Timer(System::BaseAddress base, ClockControl::ClockSpeed clock);
 
     void enable();
     void disable();
-    ClockControl::Clock clock() { return mClock; }
+    ClockControl::ClockSpeed clock() { return mClock; }
 
     virtual void dmaReadComplete();
     virtual void dmaWriteComplete();
@@ -253,7 +253,7 @@ private:
         uint16_t __RESERVEDE;
     };
     volatile TIMER* mBase;
-    ClockControl::Clock mClock;
+    ClockControl::ClockSpeed mClock;
     InterruptController::Line* mLine[LINE_COUNT];
     System::Event* mEvent[EVENT_COUNT];
 

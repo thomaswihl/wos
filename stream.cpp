@@ -1,6 +1,6 @@
 #include "stream.h"
 
-Stream::Stream(System::BaseAddress base, ClockControl *clockControl, ClockControl::Clock clock, unsigned transmitBufferSize, unsigned receiveBufferSize) :
+Stream::Stream(System::BaseAddress base, ClockControl *clockControl, ClockControl::ClockSpeed clock, unsigned transmitBufferSize, unsigned receiveBufferSize) :
     Serial(base, clockControl, clock),
     mWriteFifo(transmitBufferSize),
     mReadFifo(receiveBufferSize),
@@ -50,6 +50,17 @@ int Stream::read(char *data, unsigned len, System::Event *event)
 int Stream::write(const char *data, unsigned len)
 {
     unsigned written = mWriteFifo.write(data, len);
+    if (mDmaWrite == nullptr)
+    {
+        // In case of a trap DMA and IRQ are disabled, go on manually
+        char c;
+        while (mWriteFifo.pop(c))
+        {
+            Serial::waitTransmitDataEmpty();
+            Serial::write(c);
+        }
+        return len;
+    }
     if (mDmaWrite->complete()) nextDmaWrite();
     while (written != len)
     {
