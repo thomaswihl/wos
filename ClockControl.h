@@ -58,13 +58,15 @@ public:
     enum class RtcClock { None = 0, LowSpeedExternal = 1, LowSpeedInternal = 2, HighSpeedExternal = 3 };
     enum class Clock { LowSpeedExternal, LowSpeedInternal, HighSpeedExternal, HighSpeedInternal };
 
-    ClockControl(System::BaseAddress base, uint32_t externalClock);
+    ClockControl(System::BaseAddress base);
     ~ClockControl();
 
     void addChangeHandler(Callback* changeHandler);
     void removeChangeHandler(Callback* changeHandler);
 
-    bool setSystemClock(uint32_t clock);
+    void useHseClock(uint32_t frequency, bool isResonator);
+    void useHsiClock();
+    bool setSystemClock(uint32_t frequency);
     uint32_t clock(ClockSpeed clock) const;
     template<class T>
     void setPrescaler(T prescaler);
@@ -496,9 +498,10 @@ private:
     };
     volatile RCC* mBase;
     uint32_t mExternalClock;
+    bool mExternalIsResonator;
     std::vector<Callback*> mCallback;
 
-    bool getPllConfig(uint32_t clock, uint32_t& div, uint32_t& mul);
+    bool getPllConfig(uint32_t dst, uint32_t src, uint32_t& div, uint32_t& mul);
     void resetClock(bool notify);
     void notify(Callback::Reason reason, uint32_t clock);
 

@@ -30,41 +30,86 @@ public:
     enum class Pull { None = 0, Up = 1, Down = 2 };
     enum class AltFunc
     {
-        GPIO = 0,
+        // AF0
+        SYS = 0,
+        // AF1
         TIM1 = 1,
         TIM2 = 1,
+        // AF2
         TIM3 = 2,
         TIM4 = 2,
         TIM5 = 2,
+        // AF3
         TIM8 = 3,
         TIM9 = 3,
         TIM10 = 3,
         TIM11 = 3,
+        LPTIM1 = 3,
+        CEC_AF3 = 3,
+        // AF4
         I2C1 = 4,
         I2C2 = 4,
         I2C3 = 4,
+        I2C4 = 4,
+        CEC_AF4 = 4,
+        CEC = 4,
+        // AF5
         SPI1 = 5,
         SPI2 = 5,
+        SPI3_AF5 = 5,
+        SPI4 = 5,
+        SPI5 = 5,
+        SPI6 = 5,
+        // AF6
         SPI3 = 6,
+        SAI1 = 6,
+        // AF7
+        SPI2_AF7 = 7,
+        SPI3_AF7 = 7,
         USART1 = 7,
         USART2 = 7,
         USART3 = 7,
+        UART5_AF7 = 7,
+        SPDIFRX_AF7 = 7,
+        // AF8
+        SAI2 = 8,
         UART4 = 8,
         UART5 = 8,
+        UART7 = 8,
         USART6 = 8,
+        UART8 = 8,
+        SPDIFRX_AF8 = 8,
+        // AF9
         CAN1 = 9,
         CAN2 = 9,
         TIM12 = 9,
         TIM13 = 9,
         TIM14 = 9,
+        QUADSPI = 9,
+        LCD = 9,
+        // AF10
+        SAI2 = 10,
+        QUADSPI = 10,
         OTG_FS = 10,
         OTG_HS = 10,
+        OTG1_FS = 10,
+        OTG2_HS = 10,
+        // AF11
         ETH = 11,
+        OTG1_FS = 11,
+        // AF12
         FSMC = 12,
+        FMC = 12,
         SDIO = 12,
+        SDMMC1 = 12,
         OTG_HS_FS = 12,
+        OTG2_FS = 12,
+        // AF13
         DCMI = 13,
-        EVENTOUT = 15
+        // AF14
+        LCD = 14,
+        // AF15
+        SYS = 15,
     };
     enum class Mode { Input = 0, Output = 1, Alternate = 2, Analog = 3 };
 
