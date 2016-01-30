@@ -28,6 +28,8 @@ StaticLibrary {
         "IndependentWatchdog.h",
         "InterruptController.cpp",
         "InterruptController.h",
+        "LcdController.cpp",
+        "LcdController.h",
         "Power.cpp",
         "Power.h",
         "Serial.cpp",

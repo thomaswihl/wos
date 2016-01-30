@@ -31,7 +31,7 @@ public:
     enum class AltFunc
     {
         // AF0
-        SYS = 0,
+        SYS_AF0 = 0,
         // AF1
         TIM1 = 1,
         TIM2 = 1,
@@ -72,7 +72,7 @@ public:
         UART5_AF7 = 7,
         SPDIFRX_AF7 = 7,
         // AF8
-        SAI2 = 8,
+        SAI2_AF8 = 8,
         UART4 = 8,
         UART5 = 8,
         UART7 = 8,
@@ -85,18 +85,18 @@ public:
         TIM12 = 9,
         TIM13 = 9,
         TIM14 = 9,
-        QUADSPI = 9,
-        LCD = 9,
+        QUADSPI_AF9 = 9,
+        LCD_AF9 = 9,
         // AF10
-        SAI2 = 10,
-        QUADSPI = 10,
+        SAI2_AF10 = 10,
+        QUADSPI_AF10 = 10,
         OTG_FS = 10,
         OTG_HS = 10,
-        OTG1_FS = 10,
+        OTG1_FS_AF10 = 10,
         OTG2_HS = 10,
         // AF11
         ETH = 11,
-        OTG1_FS = 11,
+        OTG1_FS_AF11 = 11,
         // AF12
         FSMC = 12,
         FMC = 12,
@@ -107,9 +107,9 @@ public:
         // AF13
         DCMI = 13,
         // AF14
-        LCD = 14,
+        LCD_AF14 = 14,
         // AF15
-        SYS = 15,
+        SYS_AF15 = 15,
     };
     enum class Mode { Input = 0, Output = 1, Alternate = 2, Analog = 3 };
 
