@@ -333,7 +333,7 @@ bool System::waitForEvent(Event *&event)
     uint64_t start = ns();
     while (mEventQueue.used() == 0)
     {
-        __asm("wfi");
+        //__asm("wfi");
     }
     ++mEventCount;
     mTimeIdle += ns() - start;

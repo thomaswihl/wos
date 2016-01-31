@@ -27,7 +27,8 @@ Serial::Serial(System::BaseAddress base, ClockControl *clockControl, ClockContro
     mClock(clock),
     mSpeed(0)
 {
-    static_assert(sizeof(USART) == 0x1c, "Struct has wrong size, compiler problem.");
+    static_assert(sizeof(USART_F4) == 0x1c, "Struct has wrong size, compiler problem.");
+    static_assert(sizeof(USART_F7) == 0x2c, "Struct has wrong size, compiler problem.");
     clockControl->addChangeHandler(this);
 }
 
@@ -36,7 +37,7 @@ Serial::~Serial()
     disable(Device::All);
 }
 
-void Serial::setSpeed(uint32_t speed)
+uint32_t Serial::setSpeed(uint32_t speed)
 {
     uint32_t clock = mClockControl->clock(mClock);
     uint32_t accuracy = 8 * (2 - mBase->CR1.OVER8);
@@ -44,11 +45,17 @@ void Serial::setSpeed(uint32_t speed)
     mBase->BRR.DIV_MANTISSA = divider / accuracy;
     mBase->BRR.DIV_FRACTION = divider % accuracy;
     mSpeed = speed;
+    return clock / divider;
 }
 
 void Serial::setWordLength(Serial::WordLength dataBits)
 {
+#ifdef STM32F7
+    mBase->CR1.M0 = static_cast<uint32_t>(dataBits) & 1;
+    mBase->CR1.M1 = (static_cast<uint32_t>(dataBits) >> 1) & 1;
+#else
     mBase->CR1.M = static_cast<uint32_t>(dataBits);
+#endif
 }
 
 void Serial::setParity(Serial::Parity parity)
@@ -163,7 +170,7 @@ void Serial::configDma(Dma::Stream *write, Dma::Stream *read)
     if (Device::mDmaWrite != nullptr)
     {
         mDmaWrite->config(Dma::Stream::Direction::MemoryToPeripheral, false, true, Dma::Stream::DataSize::Byte, Dma::Stream::DataSize::Byte, Dma::Stream::BurstLength::Single, Dma::Stream::BurstLength::Single);
-        mDmaWrite->setAddress(Dma::Stream::End::Peripheral, reinterpret_cast<System::BaseAddress>(&mBase->DR));
+        mDmaWrite->setAddress(Dma::Stream::End::Peripheral, reinterpret_cast<System::BaseAddress>(tdr()));
         mDmaWrite->configFifo(Dma::Stream::FifoThreshold::ThreeQuater);
         mBase->CR3.DMAT = 1;
     }
@@ -174,7 +181,7 @@ void Serial::configDma(Dma::Stream *write, Dma::Stream *read)
     if (Device::mDmaRead != nullptr)
     {
         mDmaRead->config(Dma::Stream::Direction::PeripheralToMemory, false, true, Dma::Stream::DataSize::Byte, Dma::Stream::DataSize::Byte, Dma::Stream::BurstLength::Single, Dma::Stream::BurstLength::Single);
-        mDmaRead->setAddress(Dma::Stream::End::Peripheral, reinterpret_cast<System::BaseAddress>(&mBase->DR));
+        mDmaRead->setAddress(Dma::Stream::End::Peripheral, reinterpret_cast<System::BaseAddress>(rdr()));
         mDmaRead->configFifo(Dma::Stream::FifoThreshold::Disable);
         mBase->CR3.DMAR = 1;
     }
@@ -186,21 +193,21 @@ void Serial::configDma(Dma::Stream *write, Dma::Stream *read)
 
 void Serial::waitTransmitComplete()
 {
-    while (!mBase->SR.bits.TC)
+    while (!srAddr()->bits.TC)
     {
     }
 }
 
 void Serial::waitTransmitDataEmpty()
 {
-    while (!mBase->SR.bits.TXE)
+    while (!srAddr()->bits.TXE)
     {
     }
 }
 
 void Serial::waitReceiveNotEmpty()
 {
-    while (!mBase->SR.bits.RXNE)
+    while (!srAddr()->bits.RXNE)
     {
     }
 }
@@ -209,20 +216,20 @@ void Serial::waitReceiveNotEmpty()
 void Serial::interruptCallback(InterruptController::Index /*index*/)
 {
     __SR sr;
-    sr.value = mBase->SR.value;
+    sr.value = srValue();
     bool any = false;
     if (sr.bits.ORE)
     {
         error(System::Event::Result::OverrunError);
         // we have to read the data even though the STM tells us that there is nothing to read (RXNE = 0)
-        (void)mBase->DR;
+        (void)read();
         any = true;
     }
     if (sr.bits.FE)
     {
         error(System::Event::Result::FramingError);
         // we have to read the data even though the STM tells us that there is nothing to read (RXNE = 0)
-        (void)mBase->DR;
+        (void)read();
         any = true;
     }
     if (sr.bits.PE)
@@ -237,14 +244,14 @@ void Serial::interruptCallback(InterruptController::Index /*index*/)
         // we have to manually clear the bit
         __SR clear;
         clear.bits.LBD = 1;
-        mBase->SR.value = clear.value;
+        srClear(clear.value);
         any = true;
     }
     if (sr.bits.NF)
     {
         error(System::Event::Result::NoiseDetected);
         // we have to read the data even though the STM tells us that there is nothing to read (RXNE = 0)
-        (void)mBase->DR;
+        (void)read();
         any = true;
     }
     if (sr.bits.RXNE && mBase->CR1.RXNEIE)
@@ -265,12 +272,14 @@ void Serial::interruptCallback(InterruptController::Index /*index*/)
     if (sr.bits.IDLE && mBase->CR1.IDLEIE)
     {
         // we have to read the data to clear the idle bit
-        (void)mBase->DR;
+        (void)read();
         interrupt(Interrupt::Idle);
         any = true;
     }
     if (!any) interrupt(Interrupt::DataReadByDma);
-
+#ifdef STM32F7
+    srClear(sr.value);
+#endif
 }
 
 void Serial::clockCallback(ClockControl::Callback::Reason reason, uint32_t /*newClock*/)
