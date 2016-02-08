@@ -2,92 +2,75 @@
 #define LCDCONTROLLER_H
 
 #include <stdint.h>
+#include "System.h"
 
 
 class LcdController
 {
 public:
-    LcdController();
+    enum class Layer { Layer0, Layer1 };
+    enum class PixelFormat { ARGB8888, RGB888, RGB565, ARGB1555, ARGB4444, L8, AL44, AL88 };
+    class LayerConfig
+    {
+    public:
+        LayerConfig(Layer layer, PixelFormat format, int x, int y, int width, int height, void* framebuffer);
 
+        uint32_t cr(bool enable) { return CR.value | (enable ? 1 : 0); }
+
+    private:
+        friend class LcdController;
+        Layer mLayer;
+        PixelFormat mPixelFormat;
+        int mX;
+        int mY;
+        int mWidth;
+        int mHeight;
+        void* mFramebuffer;
+        int mStride;
+        int mLineLen;
+        union __CR
+        {
+            struct
+            {
+                uint32_t LEN : 1;
+                uint32_t COLKEN : 1;
+                uint32_t __RESERVED0: 2;
+                uint32_t CLUTEN : 1;
+                uint32_t __RESERVED1 : 27;
+            }   CR;
+            uint32_t value;
+        }   CR;
+
+        void update();
+    };
+    enum class Polarity { ActiveLow, ActiveHigh };
+    LcdController(System::BaseAddress base, uint32_t width, uint32_t height);
+    void config(uint32_t hSync, uint32_t hBackPorch, uint32_t hFrontPorch, uint32_t vSync, uint32_t vBackPorch, uint32_t vFrontPorch);
+    void configSignals(Polarity hSync, Polarity vSync, Polarity dataEnable, Polarity clock);
+    void enable(bool enable = true);
+
+
+    void setPaletteEntry(Layer layer, uint8_t index, uint8_t red, uint8_t green, uint8_t blue);
+    void enable(LayerConfig layer, bool duringVerticalBlank = true);
+    void disable(Layer layer, bool duringVerticalBlank = true);
 private:
     struct __LAYER
     {
         uint32_t __RESERVED0;
-        struct __CR
-        {
-            uint32_t LEN : 1;
-            uint32_t COLKEN : 1;
-            uint32_t __RESERVED0: 2;
-            uint32_t CLUTEN : 1;
-            uint32_t __RESERVED1 : 27;
-        }   CR;
-        struct __WHPCR
-        {
-            uint32_t WHSTPOS : 12;
-            uint32_t __RESERVED0: 4;
-            uint32_t WHSPPOS : 12;
-            uint32_t __RESERVED1 : 4;
-        }   WHPCR;
-        struct __WVPCR
-        {
-            uint32_t WVSTPOS : 11;
-            uint32_t __RESERVED0: 5;
-            uint32_t WVSPPOS : 11;
-            uint32_t __RESERVED1 : 5;
-        }   WVPCR;
-        struct __CKCR
-        {
-            uint8_t BKBLUE;
-            uint8_t BKGREEN;
-            uint8_t BKRED;
-            uint8_t __RESERVED0;
-        }   CKCR;
-        struct __PFCR
-        {
-            uint32_t PF : 3;
-            uint32_t __RESERVED0: 29;
-        }   PFCR;
-        struct __CACR
-        {
-            uint32_t CONSTA : 8;
-            uint32_t __RESERVED0: 24;
-        }   CACR;
-        struct __DCCR
-        {
-            uint8_t DCBLUE;
-            uint8_t DCGREEN;
-            uint8_t DCRED;
-            uint8_t DCALPHA;
-        }   DCCR;
-        struct __BFCR
-        {
-            uint32_t BF2 : 3;
-            uint32_t __RESERVED0: 5;
-            uint32_t BF1 : 3;
-            uint32_t __RESERVED1 : 21;
-        }   BFCR;
+        uint32_t CR;
+        uint32_t WHPCR;
+        uint32_t WVPCR;
+        uint32_t CKCR;
+        uint32_t PFCR;
+        uint32_t CACR;
+        uint32_t DCCR;
+        uint32_t BFCR;
         uint32_t __RESERVED1[2];
         uint32_t CFBAR;
-        struct __CFBLR
-        {
-            uint32_t CFBLL : 13;
-            uint32_t __RESERVED0: 3;
-            uint32_t CFBP : 13;
-            uint32_t __RESERVED1 : 3;
-        }   CFBLR;
-        struct __CFBLNR
-        {
-            uint32_t CFBLNBR : 11;
-            uint32_t __RESERVED0: 21;
-        }   CFBLNR;
+        uint32_t CFBLR;
+        uint32_t CFBLNR;
         uint32_t __RESERVED2[3];
-        struct __CLUTWR
-        {
-            uint8_t BLUE;
-            uint8_t GREEN;
-            uint8_t RED;
-            uint8_t CLUTADD;
-        }   CLUTWR;
+        uint32_t CLUTWR;
         uint32_t __RESERVED3[14];
     };
 
@@ -203,6 +186,8 @@ private:
     };
 
     volatile LTDC* mBase;
+    int mWidth;
+    int mHeight;
 
 };
 

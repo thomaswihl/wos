@@ -47,6 +47,8 @@ StaticLibrary {
         "atomic.h",
         "i2c.cpp",
         "i2c.h",
+        "memorycontroller.cpp",
+        "memorycontroller.h",
         "stream.cpp",
         "stream.h",
     ]
@@ -58,6 +60,7 @@ StaticLibrary {
     cpp.optimization: "debug"
     cpp.linkerScripts: [ "stm32f407vg.ld" ]
     cpp.positionIndependentCode: false
+
 
     cpp.commonCompilerFlags: [
         "-mcpu=cortex-m4",

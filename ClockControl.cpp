@@ -25,9 +25,10 @@ ClockControl::ClockControl(System::BaseAddress base) :
     mBase(reinterpret_cast<volatile RCC*>(base)),
     mExternalClock(0),
     mExternalIsResonator(true),
+    mVcoInClock(0),
     mCallback()
 {
-    static_assert(sizeof(RCC) == 0x88, "Struct has wrong size, compiler problem.");
+    static_assert(sizeof(RCC) == 0x94, "Struct has wrong size, compiler problem.");
 }
 
 ClockControl::~ClockControl()
@@ -65,6 +66,13 @@ void ClockControl::useHsiClock()
 
 bool ClockControl::setSystemClock(uint32_t clock)
 {
+    /* VCO output frequency: 100-432MHz
+     * VCO ionput frequency: 1-2MHz (best 2MHz)
+     * M: 2-63
+     * N: 50-432
+     * P: 2, 4, 6, 8
+     * Q: 2-15
+     */
     notify(Callback::Reason::AboutToChange, clock);
 
     if (mBase->CR.HSEON) resetClock(false);
@@ -96,16 +104,13 @@ bool ClockControl::setSystemClock(uint32_t clock)
     mBase->CFGR.PPRE1 = 5;  // 0-3 = /1, 4 = /2, 5 = /4, 6 = /8, 7 = /16
     uint32_t div, mul;
     if (!getPllConfig(clock * 2, src, div, mul)) return false;
-    // e.g. for external clock of 8MHz div should be 8 and mul should be 336
-    // VCO in = external oscillator / 8 = 1MHz
+    mVcoInClock = src / div;
     mBase->PLLCFGR.PLLM = div;  // 2..63
-    // VCO out = VCO in * 336 = 336MHz
     mBase->PLLCFGR.PLLN = mul;  // 192..432
-    // PLL out = VCO out / 2 = 168MHz
     mBase->PLLCFGR.PLLP = 0;    // 0 = /2, 1 = /4, 2 = /6, 3 = /8
-    // PLL48CLK = VCO out / 7 = 48MHz
-    mBase->PLLCFGR.PLLQ = 7;    // 2..15
-    // external oscillator/HSI is source for PLL
+    // PLL48CLK = 48MHz
+    mBase->PLLCFGR.PLLQ = mVcoInClock * mul / 48000000;    // 2..15
+    // external oscillator/HSI as source for PLL
     mBase->PLLCFGR.PLLSRC = (mExternalClock != 0) ? 1 : 0;
     // enable PLL and wait till it is ready
     mBase->CR.PLLON = 1;
@@ -157,6 +162,68 @@ uint32_t ClockControl::clock(ClockSpeed clock) const
     case ClockSpeed::APB2: return ahbClock >> std::max(0, static_cast<int>(mBase->CFGR.PPRE2) - 3);
     case ClockSpeed::RTC: return rtcClock();
     }
+    return 0;
+}
+
+bool ClockControl::setSaiClock(uint32_t frequency)
+{
+    /* VCO output frequency: 100-432MHz
+     * N: 50-432
+     * P: 2, 4, 6, 8
+     * Q: 2-15
+     * R: 2-7
+     * DIVQ: 1-32
+     * DIVR: 2, 4, 8, 16
+     * mVcoInClock * N / R / DIVR = frequency;
+     */
+
+    uint32_t N, R;
+    for (uint32_t divr = 4; divr > 0; --divr)
+    {
+        uint32_t f = findPllSettings(frequency << divr, N, R, 50, 432, 2, 7);
+        if (f != 0)
+        {
+            mBase->PLLSAICFGR.PLLSAIN = N;
+            mBase->PLLSAICFGR.PLLSAIR = R;
+            mBase->DKCFGR1.PLLSAIDIVR = divr - 1;
+            mBase->CR.PLLSAION = 1;
+            while (!mBase->CR.PLLSAIRDY)
+            {
+            }
+            return true;
+        }
+    }
+    return false;
+}
+
+uint32_t ClockControl::findPllSettings(uint32_t frequency, uint32_t& mul, uint32_t& div, uint32_t minMul, uint32_t maxMul, uint32_t minDiv, uint32_t maxDiv)
+{
+    uint32_t bestDiff = frequency;
+    mul = minMul;
+    div = maxDiv;
+    uint32_t bestFrequency;
+    for (uint32_t tmpdiv = maxDiv; tmpdiv >= minDiv; --minDiv)
+    {
+        uint32_t tmpmul = frequency * tmpdiv / mVcoInClock;
+        if (tmpmul >= minMul && tmpmul <= maxMul)
+        {
+            uint32_t vcoOut = mVcoInClock * tmpmul;
+            if (vcoOut >= 100000000 && vcoOut <= 432000000)
+            {
+                uint32_t f = mVcoInClock * tmpmul / tmpdiv;
+                uint32_t diff = std::abs(static_cast<int>(f) - static_cast<int>(frequency));
+                if (diff < bestDiff)
+                {
+                    mul = tmpmul;
+                    div = tmpdiv;
+                    bestFrequency = f;
+                    bestDiff = diff;
+                    if (bestDiff == 0) return f;
+                }
+            }
+        }
+    }
+    if (bestDiff != frequency) return bestFrequency;
     return 0;
 }
 

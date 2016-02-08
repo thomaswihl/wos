@@ -35,11 +35,11 @@ public:
     };
     enum class Function
     {
-        GpioA = 0, GpioB, GpioC, GpioD, GpioE, GpioF, GpioG, GpioH, GpioI, Crc = 12, BkpSRam = 18, CcmDataRam = 20, Dma1 = 21, Dma2 = 22, EthMax = 25, EthMaxTx, EthMacRx, EthMacPtp, OtgHs, OtgHsulpi,
+        GpioA = 0, GpioB, GpioC, GpioD, GpioE, GpioF, GpioG, GpioH, GpioI, GpioJ, GpioK, Crc = 12, BkpSRam = 18, CcmDataRam = 20, Dma1 = 21, Dma2, Dma2d, EthMac = 25, EthMacTx, EthMacRx, EthMacPtp, OtgHs, OtgHsulpi,
         Dcmi = 32, Cryp = 36, Hash, Rng, OtgFs,
-        Fsmc = 64,
-        Tim2 = 128, Tim3, Tim4, Tim5, Tim6, Tim7, Tim12, Tim13, Tim14, WWdg = 139, Spi2 = 142, Spi3, Usart2 = 145, Usart3, Usart4, Uart5, I2c1, I2c2, I2c3, Can1 = 153, Can2, Pwr = 156, Dac,
-        Tim1 = 160, Tim8, Usart1 = 164, Usart6, Adc1 = 168, Adc2, Adc3, Sdio, Spi1, SysCfg = 174, Tim9 = 176, Tim10, Tim11
+        Fsmc = 64, QSpi,
+        Tim2 = 128, Tim3, Tim4, Tim5, Tim6, Tim7, Tim12, Tim13, Tim14, LpTim1, WWdg = 139, Spi2 = 142, Spi3, SpDifRx, Usart2, Usart3, Usart4, Uart5, I2c1, I2c2, I2c3, I2c4, Can1, Can2, Cec, Pwr, Dac, Uart7, Uart8,
+        Tim1 = 160, Tim8, Usart1 = 164, Usart6, Adc1 = 168, Adc2, Adc3, Sdio, Spi1, Spi4, SysCfg, Tim9 = 176, Tim10, Tim11, Spi5 = 180, Spi6, Sai1, Sai2, Ltdc = 186
     };
     struct Reset
     {
@@ -68,6 +68,8 @@ public:
     void useHsiClock();
     bool setSystemClock(uint32_t frequency);
     uint32_t clock(ClockSpeed clock) const;
+    bool setSaiClock(uint32_t frequency);
+
     template<class T>
     void setPrescaler(T prescaler);
     template<class T>
@@ -84,6 +86,7 @@ public:
     void enableClock(Clock clock, bool enable = true, Power* pwr = nullptr);
     bool isClockReady(Clock clock);
 
+    uint32_t findPllSettings(uint32_t frequency, uint32_t &mul, uint32_t &div, uint32_t minMul, uint32_t maxMul, uint32_t minDiv, uint32_t maxDiv);
 private:
     enum
     {
@@ -112,7 +115,9 @@ private:
             uint32_t PLLRDY : 1;
             uint32_t PLLI2SON : 1;
             uint32_t PLLI2SRDY : 1;
-            uint32_t __RESERVED2 : 4;
+            uint32_t PLLSAION : 1;
+            uint32_t PLLSAIRDY : 1;
+            uint32_t __RESERVED2 : 2;
         }   CR;
         struct __PLLCFGR
         {
@@ -149,7 +154,7 @@ private:
             uint32_t HSERDYF : 1;
             uint32_t PLLRDYF : 1;
             uint32_t PLLI2SRDYF : 1;
-            uint32_t __RESERVED0 : 1;
+            uint32_t PLLSAIRDYF : 1;
             uint32_t CSSF : 1;
             uint32_t LSIRDYE : 1;
             uint32_t LSERDYE : 1;
@@ -157,14 +162,15 @@ private:
             uint32_t HSERDYE : 1;
             uint32_t PLLRDYE : 1;
             uint32_t PLLI2SRDYE : 1;
-            uint32_t __RESERVED1 : 2;
+            uint32_t PLLSAIRDYE : 1;
+            uint32_t __RESERVED1 : 1;
             uint32_t LSIRDYC : 1;
             uint32_t LSERDYC : 1;
             uint32_t HSIRDYC : 1;
             uint32_t HSERDYC : 1;
             uint32_t PLLRDYC : 1;
             uint32_t PLLI2SRDYC : 1;
-            uint32_t __RESERVED2 : 1;
+            uint32_t PLLSAIRDYC : 1;
             uint32_t CSSC : 1;
             uint32_t __RESERVED3 : 8;
         }   CIR;
@@ -179,12 +185,15 @@ private:
             uint32_t GPIOGRST : 1;
             uint32_t GPIOHRST : 1;
             uint32_t GPIOIRST : 1;
-            uint32_t __RESERVED0 : 3;
+            uint32_t GPIOJRST : 1;
+            uint32_t GPIOKRST : 1;
+            uint32_t __RESERVED0 : 1;
             uint32_t CRCRST : 1;
             uint32_t __RESERVED1 : 8;
             uint32_t DMA1RST : 1;
             uint32_t DMA2RST : 1;
-            uint32_t __RESERVED2 : 2;
+            uint32_t DMA2DRST : 1;
+            uint32_t __RESERVED2 : 1;
             uint32_t ETHMACRST : 1;
             uint32_t __RESERVED3 : 3;
             uint32_t OTGHSRST : 1;
@@ -203,7 +212,8 @@ private:
         struct __AHB3RSTR
         {
             uint32_t FSMCRST : 1;
-            uint32_t __RESERVED0 : 31;
+            uint32_t QSPIRST : 1;
+            uint32_t __RESERVED0 : 30;
         }   AHB3RSTR;
         uint32_t __RESERVED0;
         struct __APB1RSTR
@@ -217,12 +227,13 @@ private:
             uint32_t TIM12RST : 1;
             uint32_t TIM13RST : 1;
             uint32_t TIM14RST : 1;
-            uint32_t __RESERVED0 : 2;
+            uint32_t LPTIM1RST : 1;
+            uint32_t __RESERVED0 : 1;
             uint32_t WWDGRST : 1;
             uint32_t __RESERVED1 : 2;
             uint32_t SPI2RST : 1;
             uint32_t SPI3RST : 1;
-            uint32_t __RESERVED2 : 1;
+            uint32_t SPDIFRXRST : 1;
             uint32_t USART2RST : 1;
             uint32_t USART3RST : 1;
             uint32_t UART4RST : 1;
@@ -230,13 +241,14 @@ private:
             uint32_t I2C1RST : 1;
             uint32_t I2C2RST : 1;
             uint32_t I2C3RST : 1;
-            uint32_t __RESERVED3 : 1;
+            uint32_t I2C4RST : 1;
             uint32_t CAN1RST : 1;
             uint32_t CAN2RST : 1;
-            uint32_t __RESERVED4 : 1;
+            uint32_t CECRST : 1;
             uint32_t PWRRST : 1;
             uint32_t DACRST : 1;
-            uint32_t __RESERVED5 : 2;
+            uint32_t UART7RST : 1;
+            uint32_t UART8RST : 1;
         }   APB1RSTR;
         struct __APB2RSTR
         {
@@ -250,13 +262,20 @@ private:
             uint32_t __RESERVED2 : 2;
             uint32_t SDIORST : 1;
             uint32_t SPI1RST : 1;
-            uint32_t __RESERVED3 : 1;
+            uint32_t SPI4RST : 1;
             uint32_t SYSCFGRST : 1;
             uint32_t __RESERVED4 : 1;
             uint32_t TIM9RST : 1;
             uint32_t TIM10RST : 1;
             uint32_t TIM11RST : 1;
-            uint32_t __RESERVED5 : 13;
+            uint32_t __RESERVED5 : 1;
+            uint32_t SPI5RST : 1;
+            uint32_t SPI6RST : 1;
+            uint32_t SAI1RST : 1;
+            uint32_t SAI2RST : 1;
+            uint32_t __RESERVED6 : 2;
+            uint32_t LTDCRST : 1;
+            uint32_t __RESERVED7 : 5;
         }   APB2RSTR;
         uint32_t __RESERVED1;
         uint32_t __RESERVED2;
@@ -452,7 +471,8 @@ private:
             uint32_t LSEON : 1;
             uint32_t LSERDY : 1;
             uint32_t LSEBYP : 1;
-            uint32_t __RESERVED0 : 5;
+            uint32_t LSEDRV : 2;
+            uint32_t __RESERVED0 : 3;
             uint32_t RTCSEL : 2;
             uint32_t __RESERVED1 : 5;
             uint32_t RTCEN : 1;
@@ -490,15 +510,62 @@ private:
         {
             uint32_t __RESERVED0 : 6;
             uint32_t PLLI2SN : 9;
-            uint32_t __RESERVED1 : 13;
-            uint32_t PLLI2S : 3;
-            uint32_t __RESERVED2 : 1;
+            uint32_t __RESERVED1 : 1;
+            uint32_t PLLI2SP : 2;
+            uint32_t __RESERVED2 : 6;
+            uint32_t PLLI2SQ : 4;
+            uint32_t PLLI2SR : 3;
+            uint32_t __RESERVED3 : 1;
         }   PLLI2SCFGR;
-
+        struct __PLLSAICFGR
+        {
+            uint32_t __RESERVED0 : 6;
+            uint32_t PLLSAIN : 9;
+            uint32_t __RESERVED1 : 1;
+            uint32_t PLLSAIP : 2;
+            uint32_t __RESERVED2 : 6;
+            uint32_t PLLSAIQ : 4;
+            uint32_t PLLSAIR : 3;
+            uint32_t __RESERVED3 : 1;
+        }   PLLSAICFGR;
+        struct __DKCFGR1
+        {
+            uint32_t PLLI2SDIVQ : 5;
+            uint32_t __RESERVED0 : 3;
+            uint32_t PLLSAIDIVQ : 5;
+            uint32_t __RESERVED1 : 3;
+            uint32_t PLLSAIDIVR : 2;
+            uint32_t __RESERVED2 : 2;
+            uint32_t SAI1SEL : 2;
+            uint32_t SAI2SEL : 2;
+            uint32_t TIMPRE : 1;
+            uint32_t __RESERVED3 : 7;
+        }   DKCFGR1;
+        struct __DKCFGR2
+        {
+            uint32_t UART1SEL : 2;
+            uint32_t UART2SEL : 2;
+            uint32_t UART3SEL : 2;
+            uint32_t UART4SEL : 2;
+            uint32_t UART5SEL : 2;
+            uint32_t UART6SEL : 2;
+            uint32_t UART7SEL : 2;
+            uint32_t UART8SEL : 2;
+            uint32_t I2C1SEL : 2;
+            uint32_t I2C2SEL : 2;
+            uint32_t I2C3SEL : 2;
+            uint32_t I2C4SEL : 2;
+            uint32_t LPTIM1SEL : 2;
+            uint32_t CECSEL : 1;
+            uint32_t SK48MSEL : 1;
+            uint32_t SDMMCSEL : 1;
+            uint32_t __RESERVED3 : 3;
+        }   DKCFGR2;
     };
     volatile RCC* mBase;
     uint32_t mExternalClock;
     bool mExternalIsResonator;
+    uint32_t mVcoInClock;
     std::vector<Callback*> mCallback;
 
     bool getPllConfig(uint32_t dst, uint32_t src, uint32_t& div, uint32_t& mul);

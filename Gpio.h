@@ -131,7 +131,8 @@ public:
         ConfigurablePin(Gpio& gpio, Index index) : Pin(gpio, index) { }
 
         void configInput(Pull pull = Pull::None) { mGpio.configInput(mIndex, pull); }
-        void configOutput(OutputType outputType, Pull pull = Pull::None, Speed speed = Speed::Medium) { mGpio.configOutput(mIndex, outputType, pull, speed); }
+        void configOutput(OutputType outputType, Speed speed = Speed::Medium, Pull pull = Pull::None) { mGpio.configOutput(mIndex, outputType, speed, pull); }
+        void configAlternate(AltFunc altFunc, Pull pull = Pull::None, Speed speed = Speed::Medium) { mGpio.configAlternate(mIndex, altFunc, speed, pull); }
         void setMode(Mode mode) { mGpio.setMode(mIndex, mode); }
 
     };
@@ -159,7 +160,8 @@ public:
     AltFunc alternate(Index index);
 
     void configInput(Index index, Pull pull = Pull::None);
-    void configOutput(Index index, OutputType outputType, Pull pull = Pull::None, Speed speed = Speed::Medium);
+    void configOutput(Index index, OutputType outputType, Speed speed = Speed::Medium, Pull pull = Pull::None);
+    void configAlternate(Index index, AltFunc altFunc, Speed speed = Speed::Medium, Pull pull = Pull::None);
 
 
 private:
