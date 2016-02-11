@@ -357,6 +357,11 @@ void ClockControl::disable(ClockControl::Function function)
     mBase->LowPowerEnable[index] &= ~(1 << offset);
 }
 
+void ClockControl::enableGpio(int index)
+{
+    enable(static_cast<Function>(static_cast<int>(Function::GpioA) + index));
+}
+
 void ClockControl::enableRtc(Power& pwr, RtcClock clock)
 {
     bool wp = pwr.backupDomainWp();

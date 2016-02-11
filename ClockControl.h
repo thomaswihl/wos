@@ -81,6 +81,7 @@ public:
 
     void enable(Function function, bool inLowPower = true);
     void disable(Function function);
+    void enableGpio(int index);
 
     void enableRtc(Power &pwr, RtcClock clock);
     void enableClock(Clock clock, bool enable = true, Power* pwr = nullptr);

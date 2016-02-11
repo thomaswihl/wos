@@ -246,7 +246,7 @@ void CmdPin::printConfig(Gpio *gpio, unsigned int pin)
     printf("%s", mode(m));
     if (m == Gpio::Mode::Output)
     {
-        printf(": Speed = %s, Type = %s, Pull = %s", speed(gpio->speed(i)), outputType(gpio->outputType(i)), pull(gpio->pull(i)));
+        printf(": Type = %s, Speed = %s, Pull = %s", outputType(gpio->outputType(i)), speed(gpio->speed(i)), pull(gpio->pull(i)));
     }
     else if (m == Gpio::Mode::Input)
     {
@@ -254,7 +254,7 @@ void CmdPin::printConfig(Gpio *gpio, unsigned int pin)
     }
     else if (m == Gpio::Mode::Alternate)
     {
-        printf(": Function = %i, Pull = %s", static_cast<int>(gpio->alternate(i)), pull(gpio->pull(i)));
+        printf(": Function = %i, Speed = %s, Pull = %s", static_cast<int>(gpio->alternate(i)), speed(gpio->speed(i)), pull(gpio->pull(i)));
     }
 }
 

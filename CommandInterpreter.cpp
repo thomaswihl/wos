@@ -272,7 +272,10 @@ void CommandInterpreter::add(Command* cmd)
 
 void CommandInterpreter::start()
 {
-    while (mSerial.read(&mReadChar, 1, &mCharReceived) == 1) feed();
+    while (mSerial.read(&mReadChar, 1, &mCharReceived) == 1)
+    {
+        // Ignore any spurious characters that were sent during startup
+    }
     //mSystem.mSysTick.addRepeatingEvent(&mTickEvent);
     printLine();
 }

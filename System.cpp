@@ -17,6 +17,7 @@
  */
 
 #include "System.h"
+#include "ClockControl.h"
 
 #include <cstdio>
 #include <cstring>
@@ -359,14 +360,87 @@ void System::nspin(uint16_t ns)
     }
 }
 
-System::System(BaseAddress base) :
+Gpio *System::gpio(char index)
+{
+    index -= 'A';
+    if (index > mGpioCount) index -= 'a' - 'A';
+    if (index < mGpioCount)
+    {
+        if (!gpioIsEnabled(index)) gpioEnable(index);
+        return mGpio[index];
+    }
+    return nullptr;
+}
+
+bool System::configInput(const char *range, Gpio::Pull pull)
+{
+    return false;
+}
+
+bool System::configOutput(const char *range, Gpio::OutputType outputType, Gpio::Speed speed, Gpio::Pull pull)
+{
+    int port, start, stop;
+    while (*range != 0 && decodeRange(range, port, start, stop))
+    {
+        if (!gpioIsEnabled(port)) gpioEnable(port);
+        for (int i = start; i <= stop; ++i)
+        {
+            mGpio[port]->configOutput(static_cast<Gpio::Index>(i), outputType, speed, pull);
+        }
+    }
+    return *range == 0;
+}
+
+bool System::configAlternate(const char *range, Gpio::AltFunc altFunc, Gpio::Speed speed, Gpio::Pull pull)
+{
+    int port, start, stop;
+    while (*range != 0 && decodeRange(range, port, start, stop))
+    {
+        if (!gpioIsEnabled(port)) gpioEnable(port);
+        for (int i = start; i <= stop; ++i)
+        {
+            mGpio[port]->configAlternate(static_cast<Gpio::Index>(i), altFunc, speed, pull);
+        }
+    }
+    return *range == 0;
+}
+
+void System::printInfo()
+{
+    updateBogoMips();
+    ClockControl::Reset::Reason rr = mRcc->resetReason();
+    std::printf("\n\n\nRESET: ");
+    if (rr & ClockControl::Reset::LowPower) printf("LOW POWER   ");
+    if (rr & ClockControl::Reset::WindowWatchdog) printf("WINDOW WATCHDOG   ");
+    if (rr & ClockControl::Reset::IndependentWatchdog) printf("INDEPENDENT WATCHDOG   ");
+    if (rr & ClockControl::Reset::Software) printf("SOFTWARE RESET   ");
+    if (rr & ClockControl::Reset::PowerOn) printf("POWER ON   ");
+    if (rr & ClockControl::Reset::Pin) printf("PIN RESET   ");
+    if (rr & ClockControl::Reset::BrownOut) printf("BROWN OUT   ");
+    std::printf("\n");
+    std::printf("CLOCK   : System = %luMHz, AHB = %luMHz, APB1 = %luMHz, APB2 = %luMHz\n",
+                mRcc->clock(ClockControl::ClockSpeed::System) / 1000000,
+                mRcc->clock(ClockControl::ClockSpeed::AHB) / 1000000,
+                mRcc->clock(ClockControl::ClockSpeed::APB1) / 1000000,
+                mRcc->clock(ClockControl::ClockSpeed::APB2) / 1000000);
+    std::printf("BOGOMIPS: %lu.%lu\n", bogoMips() / 1000000, bogoMips() % 1000000);
+    std::printf("RAM     : %luk heap free, %luk heap used, %luk bss used, %lik data used.\n", (memFree() + 512) / 1024, (memUsed() + 512) / 1024, (memBssUsed() + 512) / 1024, (memDataUsed() + 512) / 1024);
+    std::printf("STACK   : %luk free, %luk used, %luk max used.\n", (stackFree() + 512) / 1024, (stackUsed() + 512) / 1024, (stackMaxUsed() + 512) / 1024);
+}
+
+
+System::System(BaseAddress base, const BaseAddress *gpioArray, int gpioArraySize, BaseAddress clockControl) :
     mBase(reinterpret_cast<volatile SCB*>(base)),
     mBogoMips(0),
     mEventQueue(128),
     mTimeInInterrupt(0),
     mTimeIdle(0),
     mEventCount(0),
-    mInterruptCount(0)
+    mInterruptCount(0),
+    mGpio(nullptr),
+    mGpioCount(gpioArraySize),
+    mGpioIsEnabled(0),
+    mRcc(nullptr)
 {
     static_assert(sizeof(SCB) == 0x40, "Struct has wrong size, compiler problem.");
     // Make sure we are the first and only instance
@@ -377,10 +451,77 @@ System::System(BaseAddress base) :
     mBase->SHCSR.MEMFAULTENA = 1;
     //mBase->CCR.UNALIGNTRP = 1;
     mBase->CCR.DIV0TRP = 1;
+    if (gpioArray != nullptr && gpioArraySize > 0)
+    {
+        mGpio = new Gpio*[gpioArraySize];
+        if (mGpio != nullptr)
+        {
+            for (int i = 0; i < gpioArraySize; ++i)
+            {
+                mGpio[i] = new Gpio(gpioArray[i]);
+            }
+        }
+    }
+    if (clockControl != 0)
+    {
+        mRcc = new ClockControl(clockControl);
+    }
 }
 
 System::~System()
 {
+}
+
+void System::gpioEnable(int index)
+{
+    mRcc->enableGpio(index);
+    mGpioIsEnabled |= (1 << index);
+}
+
+bool System::decodeRange(const char *&string, int &port, int &startPin, int &stopPin)
+{
+    port = *string - 'A';
+    if (port > mGpioCount)
+    {
+        // Accept lower case characters
+        port -= 'a' - 'A';
+        if (port > mGpioCount) return false;
+    }
+    ++string;
+    startPin = stopPin = decodePin(string);
+    if (*string == '-')
+    {
+        ++string;
+        stopPin = decodePin(string);
+        if (*string == ',')
+        {
+            ++string;
+            return true;
+        }
+        if (*string == 0) return true;
+        return false;
+    }
+    if (*string == ',')
+    {
+        ++string;
+        return true;
+    }
+    if (*string == 0) return true;
+    return false;
+}
+
+int System::decodePin(const char *&string)
+{
+    int value = 0;
+    while (true)
+    {
+        int digit = *string;
+        if (digit < '0' || digit > '9') break;
+        digit -= '0';
+        value = value * 10 + digit;
+        ++string;
+    }
+    return value;
 }
 
 // The stack looks like this: (FPSCR, S15-S0) xPSR, PC, LR, R12, R3, R2, R1, R0
@@ -497,4 +638,5 @@ void System::printError(const char *component, const char *message)
 {
     printf("\nERROR in %s: %s\n", component, message);
 }
+
 

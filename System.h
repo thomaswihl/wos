@@ -21,6 +21,8 @@
 
 #include "ExternalInterrupt.h"
 #include "CircularBuffer.h"
+#include "Gpio.h"
+
 #include <cstdint>
 #include <queue>
 #include <memory>
@@ -40,6 +42,8 @@ extern char __heap_end;
 
 extern void _start();
 }
+
+class ClockControl;
 
 class System
 {
@@ -120,9 +124,24 @@ public:
     uint32_t bogoMips() { return mBogoMips; }
     void nspin(uint16_t ns);
 
+    ClockControl* clockControl() const { return mRcc; }
+    Gpio* gpio(char index);
+    Gpio** gpio() const { return mGpio; }
+    int gpioCount() const { return mGpioCount; }
+    bool configInput(const char* range, Gpio::Pull pull = Gpio::Pull::None);
+    bool configOutput(const char* range, Gpio::OutputType outputType = Gpio::OutputType::PushPull, Gpio::Speed speed = Gpio::Speed::Medium, Gpio::Pull pull = Gpio::Pull::None);
+    bool configAlternate(const char* range, Gpio::AltFunc altFunc, Gpio::Speed speed = Gpio::Speed::Medium, Gpio::Pull pull = Gpio::Pull::None);
+
+    void printInfo();
+
 protected:
-    System(BaseAddress base);
+    System(BaseAddress base, const BaseAddress* gpioArray, int gpioArraySize, BaseAddress clockControl);
     ~System();
+
+    inline bool gpioIsEnabled(int index) const { return (1 << index) & mGpioIsEnabled; }
+    void gpioEnable(int index);
+    bool decodeRange(const char*& string, int& port, int& startPin, int& stopPin);
+    int decodePin(const char*& string);
 
 private:
     struct SCB
@@ -263,6 +282,14 @@ private:
     uint64_t mTimeIdle;
     uint32_t mEventCount;
     uint32_t mInterruptCount;
+
+    Gpio** mGpio;
+    int mGpioCount;
+    uint32_t mGpioIsEnabled;
+    ClockControl* mRcc;
+
 };
+
+
 
 #endif
