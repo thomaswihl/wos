@@ -334,7 +334,7 @@ bool System::waitForEvent(Event *&event)
     uint64_t start = ns();
     while (mEventQueue.used() == 0)
     {
-        //__asm("wfi");
+        __asm("wfi");
     }
     ++mEventCount;
     mTimeIdle += ns() - start;
@@ -349,7 +349,7 @@ void System::updateBogoMips()
         __asm("");
     }
     uint64_t end = ns();
-    mBogoMips = 100000000000000ul / (end - start);
+    mBogoMips = 100000000000000LL / (end - start);
 }
 
 void System::nspin(uint16_t ns)
@@ -423,7 +423,7 @@ void System::printInfo()
                 mRcc->clock(ClockControl::ClockSpeed::AHB) / 1000000,
                 mRcc->clock(ClockControl::ClockSpeed::APB1) / 1000000,
                 mRcc->clock(ClockControl::ClockSpeed::APB2) / 1000000);
-    std::printf("BOGOMIPS: %lu.%lu\n", bogoMips() / 1000000, bogoMips() % 1000000);
+    std::printf("BOGOMIPS: %lu.%06lu\n", bogoMips() / 1000000, bogoMips() % 1000000);
     std::printf("RAM     : %luk heap free, %luk heap used, %luk bss used, %lik data used.\n", (memFree() + 512) / 1024, (memUsed() + 512) / 1024, (memBssUsed() + 512) / 1024, (memDataUsed() + 512) / 1024);
     std::printf("STACK   : %luk free, %luk used, %luk max used.\n", (stackFree() + 512) / 1024, (stackUsed() + 512) / 1024, (stackMaxUsed() + 512) / 1024);
 }

@@ -6,6 +6,9 @@
 char const * const CmdHelp::NAME[] = { "help", "?" };
 char const * const CmdHelp::ARGV[] = { "os:command" };
 
+char const * const CmdInfo::NAME[] = { "info" };
+char const * const CmdInfo::ARGV[] = { nullptr };
+
 char const * const CmdRead::NAME[] = { "read", "rb", "rh", "rw" };
 char const * const CmdRead::ARGV[] = { "Au:address", "Vou:count" };
 
@@ -44,6 +47,16 @@ bool CmdHelp::execute(CommandInterpreter &interpreter, int argc, const CommandIn
             printf("  %s\n\n", cmd->helpText());
         }
     }
+    return true;
+}
+
+CmdInfo::CmdInfo(System &system) : Command(NAME, sizeof(NAME) / sizeof(NAME[0]), ARGV, sizeof(ARGV) / sizeof(ARGV[0])), mSystem(system)
+{
+}
+
+bool CmdInfo::execute(CommandInterpreter &interpreter, int argc, const CommandInterpreter::Argument *argv)
+{
+    mSystem.printInfo();
     return true;
 }
 

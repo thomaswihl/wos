@@ -27,6 +27,18 @@ private:
     static char const * const ARGV[];
 };
 
+class CmdInfo : public CommandInterpreter::Command
+{
+public:
+    CmdInfo(System& system);
+    virtual bool execute(CommandInterpreter& interpreter, int argc, const CommandInterpreter::Argument* argv);
+    virtual const char* helpText() const { return "Shows system information."; }
+private:
+    static char const * const NAME[];
+    static char const * const ARGV[];
+    System& mSystem;
+};
+
 class CmdRead : public CommandInterpreter::Command
 {
 public:
