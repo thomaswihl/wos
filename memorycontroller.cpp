@@ -10,6 +10,8 @@ void MemoryController::sdRamConfig(SdRam *config1, SdRam *config2, SdRamClock cl
 {
     __SDCMR mode;
     mode.value = 0;
+    mode.bits.NRFS = 1;
+
     if (config1 != nullptr)
     {
         mBase->SDCR1.value = config1->cr();
@@ -38,11 +40,11 @@ void MemoryController::sdRamConfig(SdRam *config1, SdRam *config2, SdRamClock cl
     mode.bits.NRFS = 8;
     mBase->SDCMR = mode.value;
     while (mBase->SDSR.BUSY) { }
-    mode.bits.NRFS = 0;
+    mode.bits.NRFS = 1;
 
     mode.bits.MODE = 4;
     // Burst Length = 8, CAS Latency = 2
-    mode.bits.MRD = 0x23;
+    mode.bits.MRD = 0x220;
     mBase->SDCMR = mode.value;
     while (mBase->SDSR.BUSY) { }
 
