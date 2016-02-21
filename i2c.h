@@ -1,8 +1,15 @@
+#ifndef I2C_H
+#define I2C_H
+
 #include "ClockControl.h"
 #include "Device.h"
 
-#ifndef I2C_H
-#define I2C_H
+
+#ifdef STM32F7
+#define IIC IIC_F7
+#else
+#define IIC IIC_F4
+#endif
 
 class I2C : public Device, public ClockControl::Callback
 {
@@ -58,6 +65,7 @@ public:
     bool transfer(Transfer* transfer);
     void configDma(Dma::Stream *write, Dma::Stream *read);
     void configInterrupt(InterruptController::Line *event, InterruptController::Line *error);
+    void setSpeed(uint32_t maxSpeed, Mode mode);
 
 protected:
     void dmaReadComplete();
@@ -67,7 +75,7 @@ protected:
     void interruptCallback(InterruptController::Index index);
 
 private:
-    struct IIC
+    struct IIC_F4
     {
         struct __CR1
         {
@@ -125,8 +133,8 @@ private:
             uint16_t ADD10 : 1;
             uint16_t STOPF : 1;
             uint16_t __RESERVED0 : 1;
-            uint16_t RxNE : 1;
-            uint16_t TxE : 1;
+            uint16_t RXNE : 1;
+            uint16_t TXE : 1;
             uint16_t BERR : 1;
             uint16_t ARLO : 1;
             uint16_t AF : 1;
@@ -165,6 +173,139 @@ private:
         }   TRISE;
         uint16_t __RESERVED8;
     };
+    struct IIC_F7
+    {
+        struct __CR1
+        {
+            uint32_t PE : 1;
+            uint32_t TXIE : 1;
+            uint32_t RXIE : 1;
+            uint32_t ADDRIE : 1;
+            uint32_t NACKIE : 1;
+            uint32_t STOPIE : 1;
+            uint32_t TCIE : 1;
+            uint32_t ERRIR : 1;
+            uint32_t DNF : 4;
+            uint32_t ANFOFF : 1;
+            uint32_t __RESERVED0 : 1;
+            uint32_t TXDMAEN : 1;
+            uint32_t RXDMAEN : 1;
+            uint32_t SBC : 1;
+            uint32_t NOSTRETCH : 1;
+            uint32_t __RESERVED1 : 1;
+            uint32_t GCEN : 1;
+            uint32_t SMBHEN : 1;
+            uint32_t SMBDEN : 1;
+            uint32_t ALERTEN : 1;
+            uint32_t PECEN : 1;
+            uint32_t __RESERVED2 : 8;
+        }   CR1;
+        struct __CR2
+        {
+            uint32_t SADD : 10;
+            uint32_t RD_WRN : 1;
+            uint32_t ADD10 : 1;
+            uint32_t HEAD10R : 1;
+            uint32_t START : 1;
+            uint32_t STOP : 1;
+            uint32_t NACK : 1;
+            uint32_t NBYTES : 8;
+            uint32_t RELOAD : 1;
+            uint32_t AUTOEND : 1;
+            uint32_t PECBYTE : 1;
+            uint32_t __RESERVED1 : 5;
+        }   CR2;
+        struct __OAR1
+        {
+            uint32_t OA1 : 10;
+            uint32_t OA1MODE : 1;
+            uint32_t __RESERVED0 : 4;
+            uint32_t OA1EN : 1;
+            uint32_t __RESERVED1 : 16;
+        }   OAR1;
+        struct __OAR2
+        {
+            uint32_t __RESERVED0 : 1;
+            uint32_t OA2 : 7;
+            uint32_t OA2MS : 3;
+            uint32_t __RESERVED1 : 4;
+            uint32_t OA2EN : 1;
+            uint32_t __RESERVED2 : 16;
+        }   OAR2;
+        struct __TIMINGR
+        {
+            uint32_t SCLL : 8;
+            uint32_t SCLH : 8;
+            uint32_t SDADEL : 4;
+            uint32_t SCLDEL : 4;
+            uint32_t __RESERVED0 : 4;
+            uint32_t PRESC : 4;
+        }   TIMINGR;
+        struct __TIMEOUTR
+        {
+            uint32_t TIMEOUTA : 12;
+            uint32_t TIDLE : 1;
+            uint32_t __RESERVED0 : 2;
+            uint32_t TIMEOUTEN : 1;
+            uint32_t TIMEOUTB : 12;
+            uint32_t __RESERVED1 : 3;
+            uint32_t TEXTEN : 1;
+        }   TIMEOUTR;
+        union __ISR
+        {
+            struct
+            {
+                uint32_t TXE : 1;
+                uint32_t TXIS : 1;
+                uint32_t RXNE : 1;
+                uint32_t ADDR : 1;
+                uint32_t NACKF : 1;
+                uint32_t STOPF : 1;
+                uint32_t TC : 1;
+                uint32_t TCR : 1;
+                uint32_t BERR : 1;
+                uint32_t ARLO : 1;
+                uint32_t OVR : 1;
+                uint32_t PECERR : 1;
+                uint32_t TIMEOUT : 1;
+                uint32_t ALERT : 1;
+                uint32_t __RESERVED0 : 1;
+                uint32_t BUSY : 1;
+                uint32_t DIR : 1;
+                uint32_t ADDCODE : 7;
+                uint32_t __RESERVED1 : 8;
+            }   bits;
+            uint32_t value;
+        }   ISR;
+        union __ICR
+        {
+            struct
+            {
+                uint32_t __RESERVED0 : 3;
+                uint32_t ADDRCF : 1;
+                uint32_t NACKCF : 1;
+                uint32_t STOPCF : 1;
+                uint32_t __RESERVED1: 2;
+                uint32_t BERRCF : 1;
+                uint32_t ARLOCF : 1;
+                uint32_t OVRCF : 1;
+                uint32_t PECCF : 1;
+                uint32_t TIMEOUTCF : 1;
+                uint32_t ALERTCF : 1;
+                uint32_t __RESERVED2 : 18;
+            }   bits;
+            uint32_t value;
+        }   ICR;
+        struct __PECR
+        {
+            uint32_t PEC : 8;
+            uint32_t __RESERVED0 : 24;
+        }   PECR;
+        uint8_t RXDR;
+        uint8_t __RESERVED0[3];
+        uint8_t TXDR;
+        uint8_t __RESERVED1[3];
+    };
     volatile IIC* mBase;
     ClockControl* mClockControl;
     ClockControl::ClockSpeed mClock;
@@ -173,8 +314,20 @@ private:
     InterruptController::Line *mError;
     Transfer* mActiveTransfer;
 
-    void setSpeed(uint32_t maxSpeed, Mode mode);
     void nextTransfer();
+
+#ifdef STM32F7
+    inline volatile uint8_t* rdr() const { return &mBase->RXDR; }
+    inline volatile uint8_t* tdr() const { return &mBase->TXDR; }
+    inline uint32_t srValue() { return mBase->ISR.value; }
+    inline void srClear(uint32_t bits) { mBase->ICR.value = bits; }
+#else
+    inline uint8_t* rdr() const { return &mBase->DR; }
+    inline uint8_t* tdr() const { return &mBase->DR; }
+    inline uint32_t srValue() { return mBase->SR.value; }
+    inline void srClear(__SR_F4 bits) { mBase->SR = sr; }
+#endif
+
 
 };
 

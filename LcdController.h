@@ -13,8 +13,11 @@ public:
     class LayerConfig
     {
     public:
-        LayerConfig(Layer layer, PixelFormat format, int x, int y, int width, int height, void* framebuffer);
+        LayerConfig(Layer layer, PixelFormat format, int x, int y, int width, int height, const void* framebuffer);
 
+        void setColorKey(bool enabled, uint8_t red = 0, uint8_t green = 0, uint8_t blue = 0);
+        void setAlpha(uint8_t alpha);
+        void setSurroundingColor(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha);
         uint32_t cr(bool enable) { return CR.value | (enable ? 1 : 0); }
 
     private:
@@ -25,7 +28,7 @@ public:
         int mY;
         int mWidth;
         int mHeight;
-        void* mFramebuffer;
+        const void* mFramebuffer;
         int mStride;
         int mLineLen;
         union __CR
@@ -37,9 +40,33 @@ public:
                 uint32_t __RESERVED0: 2;
                 uint32_t CLUTEN : 1;
                 uint32_t __RESERVED1 : 27;
-            }   CR;
+            }   bits;
             uint32_t value;
         }   CR;
+        union __CKCR
+        {
+            struct
+            {
+                uint32_t CKBLUE : 8;
+                uint32_t CKGREEN : 8;
+                uint32_t CKRED : 8;
+                uint32_t __RESERVED0 : 8;
+            }   bits;
+            uint32_t value;
+        }   CKCR;
+        uint8_t mConstantAlpha;
+        union __DCCR
+        {
+            struct
+            {
+                uint32_t DCBLUE : 8;
+                uint32_t DCGREEN : 8;
+                uint32_t DCRED : 8;
+                uint32_t DCALPHA : 8;
+            }   bits;
+            uint32_t value;
+        }   DCCR;
+
 
         void update();
     };
@@ -53,6 +80,7 @@ public:
     void setPaletteEntry(Layer layer, uint8_t index, uint8_t red, uint8_t green, uint8_t blue);
     void enable(LayerConfig layer, bool duringVerticalBlank = true);
     void disable(Layer layer, bool duringVerticalBlank = true);
+    bool reloadActive() const { return mBase->SRCR.value != 0; }
 private:
     struct __LAYER
     {
@@ -123,11 +151,15 @@ private:
             uint32_t HSPOL : 1;
         }   GCR;
         uint32_t __RESERVED1[2];
-        struct __SRCR
+        union __SRCR
         {
-            uint32_t IMR : 1;
-            uint32_t VBR : 1;
-            uint32_t __RESERVED0 : 30;
+            struct
+            {
+                uint32_t IMR : 1;
+                uint32_t VBR : 1;
+                uint32_t __RESERVED0 : 30;
+            }   bits;
+            uint32_t value;
         }   SRCR;
         uint32_t __RESERVED2;
         struct __BCCR

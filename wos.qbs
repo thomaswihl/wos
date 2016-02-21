@@ -60,6 +60,7 @@ StaticLibrary {
     cpp.optimization: "debug"
     cpp.linkerScripts: [ "stm32f407vg.ld" ]
     cpp.positionIndependentCode: false
+    cpp.defines: [ "STM32F7" ]
 
 
     cpp.commonCompilerFlags: [

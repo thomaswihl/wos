@@ -7,7 +7,8 @@ I2C::I2C(System::BaseAddress base, ClockControl *clockControl, ClockControl::Clo
     mClock(clock),
     mTransferBuffer(64)
 {
-    static_assert(sizeof(IIC) == 0x24, "Struct has wrong size, compiler problem.");
+    static_assert(sizeof(IIC_F4) == 0x24, "Struct has wrong size, compiler problem.");
+    static_assert(sizeof(IIC_F7) == 0x2c, "Struct has wrong size, compiler problem.");
 }
 
 
@@ -24,16 +25,16 @@ void I2C::disable(Device::Part /*part*/)
 
 void I2C::setAddress(uint16_t address, I2C::AddressMode mode)
 {
-    if (mode == AddressMode::SevenBit)
-    {
-        mBase->OAR1.ADDMODE = 0;
-        mBase->OAR1.ADD = (address & 0x7f) << 1;
-    }
-    else
-    {
-        mBase->OAR1.ADDMODE = 1;
-        mBase->OAR1.ADD = address & 0x3ff;
-    }
+//    if (mode == AddressMode::SevenBit)
+//    {
+//        mBase->OAR1.ADDMODE = 0;
+//        mBase->OAR1.ADD = (address & 0x7f) << 1;
+//    }
+//    else
+//    {
+//        mBase->OAR1.ADDMODE = 1;
+//        mBase->OAR1.ADD = address & 0x3ff;
+//    }
 }
 
 bool I2C::transfer(I2C::Transfer *transfer)
@@ -51,13 +52,13 @@ void I2C::configDma(Dma::Stream *write, Dma::Stream *read)
     if (Device::mDmaWrite != nullptr)
     {
         mDmaWrite->config(Dma::Stream::Direction::MemoryToPeripheral, false, true, dataSize, dataSize, Dma::Stream::BurstLength::Single, Dma::Stream::BurstLength::Single);
-        mDmaWrite->setAddress(Dma::Stream::End::Peripheral, reinterpret_cast<System::BaseAddress>(&mBase->DR));
+        mDmaWrite->setAddress(Dma::Stream::End::Peripheral, reinterpret_cast<System::BaseAddress>(tdr()));
         mDmaWrite->configFifo(Dma::Stream::FifoThreshold::Quater);
     }
     if (Device::mDmaRead != nullptr)
     {
         mDmaRead->config(Dma::Stream::Direction::PeripheralToMemory, false, true, dataSize, dataSize, Dma::Stream::BurstLength::Single, Dma::Stream::BurstLength::Single);
-        mDmaRead->setAddress(Dma::Stream::End::Peripheral, reinterpret_cast<System::BaseAddress>(&mBase->DR));
+        mDmaRead->setAddress(Dma::Stream::End::Peripheral, reinterpret_cast<System::BaseAddress>(rdr()));
         mDmaWrite->configFifo(Dma::Stream::FifoThreshold::Quater);
     }
 }
@@ -99,23 +100,25 @@ void I2C::clockCallback(ClockControl::Callback::Reason /*reason*/, uint32_t /*cl
 
 void I2C::interruptCallback(InterruptController::Index index)
 {
-    IIC::__SR1 sr1 = const_cast<const IIC::__SR1&>(mBase->SR1);
+#ifdef STM32F4
+    __SR sr;
+    sr.value = srValue();
     //printf("%04x\n", *((uint16_t*)&sr1));
     if (mEvent != nullptr && index == mEvent->index())
     {
-        if (sr1.SB)
+        if (sr.SB)
         {
             if (mActiveTransfer->mChip->addressMode() == AddressMode::SevenBit)
             {
                 // EV6
-                mBase->DR = (mActiveTransfer->mChip->address() << 1) | ((mActiveTransfer->mWriteData != 0 && mActiveTransfer->mWriteLength != 0) ? 0 : 1);
+                *tdr() = (mActiveTransfer->mChip->address() << 1) | ((mActiveTransfer->mWriteData != 0 && mActiveTransfer->mWriteLength != 0) ? 0 : 1);
             }
             else
             {
-                mBase->DR = 0xf0 | ((mActiveTransfer->mChip->address() >> 7) & 0x6);
+                *tdr() = 0xf0 | ((mActiveTransfer->mChip->address() >> 7) & 0x6);
             }
         }
-        else if (sr1.ADDR)
+        else if (sr.ADDR)
         {
             // EV6
             IIC::__SR2 sr2 = const_cast<const IIC::__SR2&>(mBase->SR2);
@@ -133,55 +136,55 @@ void I2C::interruptCallback(InterruptController::Index index)
                 mDmaRead->start();
             }
         }
-        else if (sr1.BTF)
+        else if (sr.BTF)
         {
             // EV8
             mBase->CR1.STOP = 1;
         }
-        else if (sr1.ADD10)
+        else if (sr.ADD10)
         {
             mBase->DR = mActiveTransfer->mChip->address();
         }
-        else if (sr1.STOPF)
+        else if (sr.STOPF)
         {
 
         }
-        else if (sr1.RxNE)
+        else if (sr.RXNE)
         {
             (void)mBase->DR;
         }
-        else if (sr1.TxE)
+        else if (sr.TXE)
         {
 
         }
     }
     else if (mError != nullptr && mError->index() == index)
     {
-        if (sr1.BERR)
+        if (sr.BERR)
         {
             printf("Bus error\n");
         }
-        if (sr1.ARLO)
+        if (sr.ARLO)
         {
             printf("Arbitration lost\n");
         }
-        if (sr1.AF)
+        if (sr.AF)
         {
             printf("Acknowledge failure\n");
         }
-        if (sr1.OVR)
+        if (sr.OVR)
         {
             printf("Overrun/Underrun\n");
         }
-        if (sr1.PECERR)
+        if (sr.PECERR)
         {
             printf("PEC error\n");
         }
-        if (sr1.TIMEOUT)
+        if (sr.TIMEOUT)
         {
             printf("Timeout\n");
         }
-        if (sr1.SMBALERT)
+        if (sr.SMBALERT)
         {
             printf("SMBus alert\n");
         }
@@ -189,6 +192,7 @@ void I2C::interruptCallback(InterruptController::Index index)
         mTransferBuffer.skip(1);
         mBase->CR1.PE = 0;
     }
+#endif
 }
 
 void I2C::setSpeed(uint32_t maxSpeed, Mode mode)
@@ -196,6 +200,7 @@ void I2C::setSpeed(uint32_t maxSpeed, Mode mode)
     uint32_t clock = mClockControl->clock(mClock);
     bool pe = mBase->CR1.PE;
     mBase->CR1.PE = 0;
+#ifdef STM32F4
     mBase->CR2.FREQ = (clock / 500000 + 1) / 2;
     switch (mode)
     {
@@ -213,7 +218,58 @@ void I2C::setSpeed(uint32_t maxSpeed, Mode mode)
         break;
 
     }
-    mBase->CR1.PE = pe;
+#endif
+#ifdef STM32F7
+
+    static const unsigned tHIGHmin[] = { 4000, 600, 260 };
+    static const unsigned tLOWmin[] = { 4700, 1300, 500 };
+    static const unsigned tr[] = { 1000, 300, 120 };
+    static const unsigned tf[] = { 300, 300, 120 };
+    static const unsigned tSU[] = { 250, 100, 50 };
+    static const unsigned tVD[] = { 3450, 900, 450 };
+    static const unsigned tHD[] = { 0, 0, 0 };
+    unsigned tAFmin = mBase->CR1.ANFOFF ? 0 : 50;
+    unsigned tAFmax = mBase->CR1.ANFOFF ? 0 : 150;
+
+    int i = 0;
+    unsigned tHIGHmul = 1, tLOWmul = 1, nCLK = 255;
+    switch (mode)
+    {
+    case Mode::Standard: i = 0; break;
+    case Mode::FastDuty2: i = 1; tLOWmul = 2; nCLK = 127; break;
+    case Mode::FastDuty16by9: i = 2; tLOWmul = 2; nCLK = 127; break;
+    }
+
+    unsigned tHIGH = (1000000000U + maxSpeed - 1) * tHIGHmul / (tHIGHmul + tLOWmul) / maxSpeed;
+    unsigned tLOW = (1000000000U + maxSpeed - 1) * tLOWmul / (tHIGHmul + tLOWmul) / maxSpeed;
+    if (tHIGH < tHIGHmin[i]) tHIGH = tHIGHmin[i];
+    if (tLOW < tLOWmin[i]) tLOW = tLOWmin[i];
+
+    unsigned presc = clock / (nCLK * maxSpeed) + 1;
+    unsigned tCLK = (1000000000U + clock - 1) / clock;
+    unsigned sclkdel;
+    unsigned tPRESC;
+    do
+    {
+        unsigned div = clock / presc;
+        tPRESC = 1000000000U / div;
+        sclkdel = (tr[i] + tSU[i]) / tPRESC - 1;
+        if (sclkdel > 15) ++presc;
+    }   while (sclkdel > 15);
+    mBase->TIMINGR.PRESC = presc - 1;
+    mBase->TIMINGR.SCLDEL = sclkdel;
+
+    unsigned tDNF = mBase->CR1.DNF * tCLK;
+
+    unsigned sdadelMin = (tf[i] + tHD[i] - tAFmin - tDNF - 3 * tCLK + tPRESC - 1) / tPRESC;
+    unsigned sdadelMax = (tVD[i] - tr[i] - tAFmax - tDNF - 4 * tCLK) / tPRESC;
+    mBase->TIMINGR.SDADEL  = std::min(15U, (sdadelMax + sdadelMin) / 2);
+
+    mBase->TIMINGR.SCLH = (tHIGH - tAFmin - tDNF - 2 * tCLK + tPRESC - 1) / tPRESC - 1;
+    mBase->TIMINGR.SCLL = (tLOW - tAFmin - tDNF - 2 * tCLK + tPRESC - 1) / tPRESC - 1;
+
+#endif
+    se->CR1.PE = pe;
     //printf("FREQ = %u, CCR = %u, TRISE = %u\n", mBase->CR2.FREQ, mBase->CCR.CCR, mBase->TRISE.TRISE);
 }
 
@@ -239,6 +295,7 @@ void I2C::nextTransfer()
 
         t->mChip->prepare();
         setSpeed(t->mChip->maxSpeed(), t->mChip->mode());
+#ifdef STM32F4
         mBase->CCR.FS = t->mChip->mode() != Mode::Standard;
         mBase->CCR.DUTY = t->mChip->mode() == Mode::FastDuty16by9;
 
@@ -260,11 +317,14 @@ void I2C::nextTransfer()
             mBase->CR2.ITEVTEN = 1;
             mBase->CR1.START = 1;
         }
+#endif
     }
     else
     {
+#ifdef STM32F4
         mBase->CR2.DMAEN = 0;
         mBase->CR1.PE = 0;
+#endif
     }
 }
 

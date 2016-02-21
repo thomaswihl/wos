@@ -48,38 +48,59 @@ void LcdController::enable(LayerConfig layer, bool duringVerticalBlank)
     mBase->LAYER[l].CR = layer.cr(true);
     mBase->LAYER[l].WHPCR = hOffset | ((layer.mWidth + hOffset - 1) << 16);
     mBase->LAYER[l].WVPCR = vOffset | ((layer.mHeight + vOffset - 1) << 16);
-    //mBase->LAYER[l].CKCR = 0;
+    mBase->LAYER[l].CKCR = layer.CKCR.value;
     mBase->LAYER[l].PFCR = static_cast<unsigned>(layer.mPixelFormat);
-    //mBase->LAYER[l].CACR = 255;
-    //mBase->LAYER[l].DCCR = 0;
+    mBase->LAYER[l].CACR = layer.mConstantAlpha;
+    mBase->LAYER[l].DCCR = layer.DCCR.value;
     //mBase->LAYER[l].BFCR = 0x00000607;
     mBase->LAYER[l].CFBAR = reinterpret_cast<uint32_t>(layer.mFramebuffer);
     mBase->LAYER[l].CFBLR = (layer.mLineLen + 3) | (layer.mLineLen << 16);
     mBase->LAYER[l].CFBLNR = layer.mHeight;
 
-    if (duringVerticalBlank) mBase->SRCR.VBR = 1;
-    else mBase->SRCR.IMR = 1;
+    if (duringVerticalBlank) mBase->SRCR.bits.VBR = 1;
+    else mBase->SRCR.bits.IMR = 1;
 }
 
 void LcdController::disable(Layer layer, bool duringVerticalBlank)
 {
     mBase->LAYER[static_cast<int>(layer)].CR = 0;
-    if (duringVerticalBlank) mBase->SRCR.VBR = 1;
-    else mBase->SRCR.IMR = 1;
+    if (duringVerticalBlank) mBase->SRCR.bits.VBR = 1;
+    else mBase->SRCR.bits.IMR = 1;
 }
 
-LcdController::LayerConfig::LayerConfig(LcdController::Layer layer, LcdController::PixelFormat format, int x, int y, int width, int height, void *framebuffer) :
+LcdController::LayerConfig::LayerConfig(LcdController::Layer layer, LcdController::PixelFormat format, int x, int y, int width, int height, const void *framebuffer) :
     mLayer(layer), mPixelFormat(format),
     mX(x), mY(y), mWidth(width), mHeight(height),
-    mFramebuffer(framebuffer), mStride(0)
+    mFramebuffer(framebuffer), mStride(0), mConstantAlpha(255)
 {
     CR.value = 0;
     update();
 }
 
+void LcdController::LayerConfig::setColorKey(bool enabled, uint8_t red, uint8_t green, uint8_t blue)
+{
+    CR.bits.COLKEN = enabled;
+    CKCR.bits.CKRED = red;
+    CKCR.bits.CKGREEN = green;
+    CKCR.bits.CKBLUE = blue;
+}
+
+void LcdController::LayerConfig::setAlpha(uint8_t alpha)
+{
+    mConstantAlpha = alpha;
+}
+
+void LcdController::LayerConfig::setSurroundingColor(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha)
+{
+    DCCR.bits.DCRED = red;
+    DCCR.bits.DCGREEN = green;
+    DCCR.bits.DCBLUE = blue;
+    DCCR.bits.DCALPHA = alpha;
+}
+
 void LcdController::LayerConfig::update()
 {
-    CR.CR.CLUTEN = 0;
+    CR.bits.CLUTEN = 0;
     mLineLen = mWidth;
     switch (mPixelFormat)
     {
@@ -88,9 +109,9 @@ void LcdController::LayerConfig::update()
     case PixelFormat::RGB565: mLineLen *= 2; break;
     case PixelFormat::ARGB1555: mLineLen *= 2; break;
     case PixelFormat::ARGB4444: mLineLen *= 2; break;
-    case PixelFormat::L8: CR.CR.CLUTEN = 1; break;
-    case PixelFormat::AL44: CR.CR.CLUTEN = 1; break;
-    case PixelFormat::AL88: mLineLen *= 2; CR.CR.CLUTEN = 1; break;
+    case PixelFormat::L8: CR.bits.CLUTEN = 1; break;
+    case PixelFormat::AL44: CR.bits.CLUTEN = 1; break;
+    case PixelFormat::AL88: mLineLen *= 2; CR.bits.CLUTEN = 1; break;
     }
 
 }

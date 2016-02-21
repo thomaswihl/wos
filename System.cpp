@@ -374,7 +374,16 @@ Gpio *System::gpio(char index)
 
 bool System::configInput(const char *range, Gpio::Pull pull)
 {
-    return false;
+    int port, start, stop;
+    while (*range != 0 && decodeRange(range, port, start, stop))
+    {
+        if (!gpioIsEnabled(port)) gpioEnable(port);
+        for (int i = start; i <= stop; ++i)
+        {
+            mGpio[port]->configInput(static_cast<Gpio::Index>(i), pull);
+        }
+    }
+    return *range == 0;
 }
 
 bool System::configOutput(const char *range, Gpio::OutputType outputType, Gpio::Speed speed, Gpio::Pull pull)
