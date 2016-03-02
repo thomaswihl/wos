@@ -29,10 +29,8 @@
 #include <queue>
 
 #ifdef STM32F7
-#define __SR __SR_F7
 #define USART USART_F7
 #else
-#define __SR __SR_F4
 #define USART USART_F4
 #endif
 

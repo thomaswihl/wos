@@ -38,7 +38,7 @@ public:
         GpioA = 0, GpioB, GpioC, GpioD, GpioE, GpioF, GpioG, GpioH, GpioI, GpioJ, GpioK, Crc = 12, BkpSRam = 18, CcmDataRam = 20, Dma1 = 21, Dma2, Dma2d, EthMac = 25, EthMacTx, EthMacRx, EthMacPtp, OtgHs, OtgHsulpi,
         Dcmi = 32, Cryp = 36, Hash, Rng, OtgFs,
         Fsmc = 64, QSpi,
-        Tim2 = 128, Tim3, Tim4, Tim5, Tim6, Tim7, Tim12, Tim13, Tim14, LpTim1, WWdg = 139, Spi2 = 142, Spi3, SpDifRx, Usart2, Usart3, Usart4, Uart5, I2c1, I2c2, I2c3, I2c4, Can1, Can2, Cec, Pwr, Dac, Uart7, Uart8,
+        Tim2 = 128, Tim3, Tim4, Tim5, Tim6, Tim7, Tim12, Tim13, Tim14, LpTim1, WWdg = 139, Spi2 = 142, Spi3, SpDifRx, Usart2, Usart3, Usart4, Uart5, I2C1, I2C2, I2C3, I2C4, Can1, Can2, Cec, Pwr, Dac, Uart7, Uart8,
         Tim1 = 160, Tim8, Usart1 = 164, Usart6, Adc1 = 168, Adc2, Adc3, Sdio, Spi1, Spi4, SysCfg, Tim9 = 176, Tim10, Tim11, Spi5 = 180, Spi6, Sai1, Sai2, Ltdc = 186
     };
     struct Reset

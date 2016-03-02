@@ -400,7 +400,7 @@ bool System::configOutput(const char *range, Gpio::OutputType outputType, Gpio::
     return *range == 0;
 }
 
-bool System::configAlternate(const char *range, Gpio::AltFunc altFunc, Gpio::Speed speed, Gpio::Pull pull)
+bool System::configAlternate(const char *range, Gpio::AltFunc altFunc, Gpio::OutputType outputType, Gpio::Speed speed, Gpio::Pull pull)
 {
     int port, start, stop;
     while (*range != 0 && decodeRange(range, port, start, stop))
@@ -408,7 +408,7 @@ bool System::configAlternate(const char *range, Gpio::AltFunc altFunc, Gpio::Spe
         if (!gpioIsEnabled(port)) gpioEnable(port);
         for (int i = start; i <= stop; ++i)
         {
-            mGpio[port]->configAlternate(static_cast<Gpio::Index>(i), altFunc, speed, pull);
+            mGpio[port]->configAlternate(static_cast<Gpio::Index>(i), altFunc, outputType, speed, pull);
         }
     }
     return *range == 0;

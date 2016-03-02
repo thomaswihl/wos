@@ -21,6 +21,13 @@
 #include <cassert>
 #include <cstdio>
 
+#ifdef STM32F7
+#define __SR __SR_F7
+#else
+#define __SR __SR_F4
+#endif
+
+
 Serial::Serial(System::BaseAddress base, ClockControl *clockControl, ClockControl::ClockSpeed clock) :
     mBase(reinterpret_cast<volatile USART*>(base)),
     mClockControl(clockControl),

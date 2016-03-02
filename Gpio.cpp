@@ -135,9 +135,10 @@ void Gpio::configOutput(Gpio::Index index, Gpio::OutputType outputType, Gpio::Sp
     setSpeed(index, speed);
 }
 
-void Gpio::configAlternate(Gpio::Index index, Gpio::AltFunc altFunc, Gpio::Speed speed, Gpio::Pull pull)
+void Gpio::configAlternate(Gpio::Index index, Gpio::AltFunc altFunc, Gpio::OutputType outputType, Gpio::Speed speed, Gpio::Pull pull)
 {
     setAlternate(index, altFunc);
+    setOutputType(index, outputType);
     setPull(index, pull);
     setSpeed(index, speed);
 }

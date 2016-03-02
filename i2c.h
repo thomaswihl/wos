@@ -14,7 +14,7 @@
 class I2C : public Device, public ClockControl::Callback
 {
 public:
-    enum class Mode { Standard, FastDuty2, FastDuty16by9 };
+    enum class DutyCycle { Standard, FastDuty2, FastDuty16by9 };
     enum class AddressMode { SevenBit, TenBit };
     class Chip;
 
@@ -25,47 +25,24 @@ public:
         uint8_t* mReadData;
         unsigned mReadLength;
         System::Event* mEvent;
-        Chip* mChip;
-    };
-
-    class Chip
-    {
-    public:
-        Chip(I2C& i2c) :
-            mI2C(i2c)
-        { }
-
-        virtual bool transfer(Transfer* transfer) { transfer->mChip = this; return mI2C.transfer(transfer); }
-        virtual void prepare() { }
-
-        uint32_t maxSpeed() const { return mMaxSpeed; }
-        void setMaxSpeed(const uint32_t &maxSpeed) { mMaxSpeed = maxSpeed; }
-        Mode mode() const { return mMode; }
-        void setMode(const Mode &mode) { mMode = mode; }
-        uint16_t address() const { return mAddress; }
-        void setAddress(const uint16_t &address) { mAddress = address; }
-        AddressMode addressMode() const { return mAddressMode; }
-        void setAddressMode(const AddressMode &addressMode) { mAddressMode = addressMode; }
-
-    private:
-        I2C& mI2C;
-        uint32_t mMaxSpeed;
-        Mode mMode;
+        // For 7 bit address this is shifted by 1 to the left leaving the LSB unused
         uint16_t mAddress;
-        AddressMode mAddressMode;
     };
-
 
     I2C(System::BaseAddress base, ClockControl* clockControl, ClockControl::ClockSpeed clock);
 
     void enable(Part part);
     void disable(Part part);
-    void setAddress(uint16_t address, AddressMode mode);
 
     bool transfer(Transfer* transfer);
     void configDma(Dma::Stream *write, Dma::Stream *read);
     void configInterrupt(InterruptController::Line *event, InterruptController::Line *error);
-    void setSpeed(uint32_t maxSpeed, Mode mode);
+    void configMaster(uint32_t maxSpeed, DutyCycle standard, AddressMode addressMode = AddressMode::SevenBit);
+
+    void setOwnAddress(uint16_t address, AddressMode mode);
+
+    bool busy() const { return mBase->ISR.bits.BUSY; }
+
 
 protected:
     void dmaReadComplete();
@@ -125,24 +102,28 @@ private:
         uint8_t DR;
         uint8_t __RESERVED3A;
         uint16_t __RESERVED4;
-        struct __SR1
+        union __SR1
         {
-            uint16_t SB : 1;
-            uint16_t ADDR : 1;
-            uint16_t BTF : 1;
-            uint16_t ADD10 : 1;
-            uint16_t STOPF : 1;
-            uint16_t __RESERVED0 : 1;
-            uint16_t RXNE : 1;
-            uint16_t TXE : 1;
-            uint16_t BERR : 1;
-            uint16_t ARLO : 1;
-            uint16_t AF : 1;
-            uint16_t OVR : 1;
-            uint16_t PECERR : 1;
-            uint16_t __RESERVED1 : 1;
-            uint16_t TIMEOUT : 1;
-            uint16_t SMBALERT : 1;
+            struct
+            {
+                uint16_t SB : 1;
+                uint16_t ADDR : 1;
+                uint16_t BTF : 1;
+                uint16_t ADD10 : 1;
+                uint16_t STOPF : 1;
+                uint16_t __RESERVED0 : 1;
+                uint16_t RXNE : 1;
+                uint16_t TXE : 1;
+                uint16_t BERR : 1;
+                uint16_t ARLO : 1;
+                uint16_t NACKF : 1;
+                uint16_t OVR : 1;
+                uint16_t PECERR : 1;
+                uint16_t __RESERVED1 : 1;
+                uint16_t TIMEOUT : 1;
+                uint16_t SMBALERT : 1;
+            }   bits;
+            uint16_t value;
         }   SR1;
         uint16_t __RESERVED5;
         struct __SR2
@@ -175,50 +156,58 @@ private:
     };
     struct IIC_F7
     {
-        struct __CR1
+        union __CR1
         {
-            uint32_t PE : 1;
-            uint32_t TXIE : 1;
-            uint32_t RXIE : 1;
-            uint32_t ADDRIE : 1;
-            uint32_t NACKIE : 1;
-            uint32_t STOPIE : 1;
-            uint32_t TCIE : 1;
-            uint32_t ERRIR : 1;
-            uint32_t DNF : 4;
-            uint32_t ANFOFF : 1;
-            uint32_t __RESERVED0 : 1;
-            uint32_t TXDMAEN : 1;
-            uint32_t RXDMAEN : 1;
-            uint32_t SBC : 1;
-            uint32_t NOSTRETCH : 1;
-            uint32_t __RESERVED1 : 1;
-            uint32_t GCEN : 1;
-            uint32_t SMBHEN : 1;
-            uint32_t SMBDEN : 1;
-            uint32_t ALERTEN : 1;
-            uint32_t PECEN : 1;
-            uint32_t __RESERVED2 : 8;
+            struct
+            {
+                uint32_t PE : 1;
+                uint32_t TXIE : 1;
+                uint32_t RXIE : 1;
+                uint32_t ADDRIE : 1;
+                uint32_t NACKIE : 1;
+                uint32_t STOPIE : 1;
+                uint32_t TCIE : 1;
+                uint32_t ERRIE : 1;
+                uint32_t DNF : 4;
+                uint32_t ANFOFF : 1;
+                uint32_t __RESERVED0 : 1;
+                uint32_t TXDMAEN : 1;
+                uint32_t RXDMAEN : 1;
+                uint32_t SBC : 1;
+                uint32_t NOSTRETCH : 1;
+                uint32_t __RESERVED1 : 1;
+                uint32_t GCEN : 1;
+                uint32_t SMBHEN : 1;
+                uint32_t SMBDEN : 1;
+                uint32_t ALERTEN : 1;
+                uint32_t PECEN : 1;
+                uint32_t __RESERVED2 : 8;
+            }   bits;
+            uint32_t value;
         }   CR1;
-        struct __CR2
+        union __CR2
         {
-            uint32_t SADD : 10;
-            uint32_t RD_WRN : 1;
-            uint32_t ADD10 : 1;
-            uint32_t HEAD10R : 1;
-            uint32_t START : 1;
-            uint32_t STOP : 1;
-            uint32_t NACK : 1;
-            uint32_t NBYTES : 8;
-            uint32_t RELOAD : 1;
-            uint32_t AUTOEND : 1;
-            uint32_t PECBYTE : 1;
-            uint32_t __RESERVED1 : 5;
+            struct
+            {
+                uint32_t SADD : 10;
+                uint32_t RD_WRN : 1;
+                uint32_t ADD10 : 1;
+                uint32_t HEAD10R : 1;
+                uint32_t START : 1;
+                uint32_t STOP : 1;
+                uint32_t NACK : 1;
+                uint32_t NBYTES : 8;
+                uint32_t RELOAD : 1;
+                uint32_t AUTOEND : 1;
+                uint32_t PECBYTE : 1;
+                uint32_t __RESERVED1 : 5;
+            }   bits;
+            uint32_t value;
         }   CR2;
         struct __OAR1
         {
-            uint32_t OA1 : 10;
-            uint32_t OA1MODE : 1;
+            uint32_t ADD : 10;
+            uint32_t ADDMODE : 1;
             uint32_t __RESERVED0 : 4;
             uint32_t OA1EN : 1;
             uint32_t __RESERVED1 : 16;
@@ -232,14 +221,18 @@ private:
             uint32_t OA2EN : 1;
             uint32_t __RESERVED2 : 16;
         }   OAR2;
-        struct __TIMINGR
+        union __TIMINGR
         {
-            uint32_t SCLL : 8;
-            uint32_t SCLH : 8;
-            uint32_t SDADEL : 4;
-            uint32_t SCLDEL : 4;
-            uint32_t __RESERVED0 : 4;
-            uint32_t PRESC : 4;
+            struct
+            {
+                uint32_t SCLL : 8;
+                uint32_t SCLH : 8;
+                uint32_t SDADEL : 4;
+                uint32_t SCLDEL : 4;
+                uint32_t __RESERVED0 : 4;
+                uint32_t PRESC : 4;
+            }   bits;
+            uint32_t value;
         }   TIMINGR;
         struct __TIMEOUTR
         {
@@ -268,7 +261,7 @@ private:
                 uint32_t OVR : 1;
                 uint32_t PECERR : 1;
                 uint32_t TIMEOUT : 1;
-                uint32_t ALERT : 1;
+                uint32_t SMBALERT : 1;
                 uint32_t __RESERVED0 : 1;
                 uint32_t BUSY : 1;
                 uint32_t DIR : 1;
@@ -313,7 +306,9 @@ private:
     InterruptController::Line *mEvent;
     InterruptController::Line *mError;
     Transfer* mActiveTransfer;
+    AddressMode mAddressMode;
 
+    void setSpeed(uint32_t maxSpeed, DutyCycle mode);
     void nextTransfer();
 
 #ifdef STM32F7
