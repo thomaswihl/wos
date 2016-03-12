@@ -173,13 +173,16 @@ void I2C::interruptCallback(InterruptController::Index index)
 #ifdef STM32F7
         if (sr.bits.NACKF)
         {
-            printf("NACK\n");
+            if (mActiveTransfer->mEvent != nullptr)
+            {
+                mActiveTransfer->mEvent->setResult(System::Event::Result::Nack);
+                System::instance()->postEvent(mActiveTransfer->mEvent);
+            }
             mTransferBuffer.skip(1);
             nextTransfer();
         }
         if (sr.bits.TC)
         {
-            printf("TC\n");
             IIC_F7::__CR1 cr1;
             cr1.value = mBase->CR1.value;
             IIC_F7::__CR2 cr2;
@@ -195,7 +198,11 @@ void I2C::interruptCallback(InterruptController::Index index)
         }
         if (sr.bits.STOPF)
         {
-            printf("STOP\n");
+            if (mActiveTransfer->mEvent != nullptr)
+            {
+                mActiveTransfer->mEvent->setResult(System::Event::Result::Success);
+                System::instance()->postEvent(mActiveTransfer->mEvent);
+            }
             mTransferBuffer.skip(1);
             nextTransfer();
         }

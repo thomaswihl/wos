@@ -27,7 +27,7 @@
 class SysCfg
 {
 public:
-    enum class Gpio { A, B, C, D, E, F, G, H, I };
+    enum class Gpio { A, B, C, D, E, F, G, H, I, J, K };
     SysCfg(System::BaseAddress base);
     void extIntSource(::Gpio::Index index, Gpio gpio);
 

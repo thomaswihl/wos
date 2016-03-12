@@ -68,6 +68,7 @@ public:
     void useHsiClock();
     bool setSystemClock(uint32_t frequency);
     uint32_t clock(ClockSpeed clock) const;
+    uint32_t externalClock() const;
     bool setSaiClock(uint32_t frequency);
 
     template<class T>

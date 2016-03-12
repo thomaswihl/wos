@@ -165,6 +165,12 @@ uint32_t ClockControl::clock(ClockSpeed clock) const
     return 0;
 }
 
+uint32_t ClockControl::externalClock() const
+{
+    if (mExternalClock != 0) return mExternalClock;
+    return 16000000;
+}
+
 bool ClockControl::setSaiClock(uint32_t frequency)
 {
     /* VCO output frequency: 100-432MHz

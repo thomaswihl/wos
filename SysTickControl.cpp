@@ -104,6 +104,7 @@ uint64_t SysTickControl::ns()
     }   while (mBase->CTRL.COUNTFLAG);
     uint64_t val = mBase->RELOAD - count;
     val *= mSingleCountTime;
+    val /= 1024;
     val += ms * static_cast<uint64_t>(1000000);
     return val;
 }
@@ -115,8 +116,8 @@ void SysTickControl::clockCallback(ClockControl::Callback::Reason reason, uint32
 
 void SysTickControl::config()
 {
-    mCountPerMs = mClock->clock(ClockControl::ClockSpeed::AHB) / 8000;
-    mSingleCountTime = 1000000 / mCountPerMs;
+    mCountPerMs = mClock->externalClock() / 1000;
+    mSingleCountTime = 1024 * 1000000 / mCountPerMs;
     mBase->CTRL.CLKSOURCE = 0;
     mBase->CTRL.TICKINT = 1;
 }

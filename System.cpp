@@ -39,15 +39,15 @@ void __attribute__((naked)) Trap()
     // save the sp and lr (containing return info)
     __asm("mov r0, sp");
     __asm("push {r4, r5, r6, r7, r8, r9, r10, r11}");
-    __asm("push {r0, lr}");
-    //  __asm("add.w r0, r0, #8");
     __asm("bl Trap2");
     __asm("pop {r4, r5, r6, r7, r8, r9, r10, r11}");
-    __asm("pop {r0, lr}");
-    __asm("mov sp, r0");
-    while (true) ;
-    // return from fault handler (doesn't work for whatever reason)
-    __asm("bx lr");
+    __asm("pop {r0, r1, r2, r3}");
+    __asm("pop {r12}");
+    __asm("pop {lr}");
+    __asm("pop {lr}");      // PC is where we came from
+    __asm("add sp, #8");    // remove hard fault info from stack
+    __asm("bkpt");          // break for the debugger
+    while (true) ;          // and wait forever
 }
 
 void Trap2(unsigned int* stackPointer)
@@ -627,6 +627,10 @@ void System::handleTrap(TrapIndex index, unsigned int* stackPointer)
     {
         printf("  %4s = 0x%08x (%u)\n", reg.name, stackPointer[reg.offset], stackPointer[reg.offset]);
         ++i;
+    }
+    for (int i = 0; i < 32; ++i)
+    {
+        printf(" %p: %08x\n", &stackPointer[i], stackPointer[i]);
     }
 }
 

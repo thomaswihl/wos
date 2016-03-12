@@ -15,7 +15,7 @@ char const * const CmdRead::ARGV[] = { "Au:address", "Vou:count" };
 char const * const CmdWrite::NAME[] = { "write", "wb", "wh", "ww" };
 char const * const CmdWrite::ARGV[] = { "Au:address", "Vu:data" };
 
-char const * const CmdPin::NAME[] = { "pin", "pinc" };
+char const * const CmdPin::NAME[] = { "pin", "pinc", "pinp" };
 char const * const CmdPin::ARGV[] = { "Pos:pin", "Vob:value" };
 
 char const * const CmdMeasureClock::NAME[] = { "clock" };
@@ -130,7 +130,9 @@ CmdPin::CmdPin(Gpio **gpio, unsigned int gpioCount) : Command(NAME, sizeof(NAME)
 bool CmdPin::execute(CommandInterpreter &/*interpreter*/, int argc, const CommandInterpreter::Argument *argv)
 {
     bool config = false;
+    bool poll = false;
     if (argv[0].value.s[3] == 'c') config = true;
+    if (argv[0].value.s[3] == 'p') poll = true;
     if (argc == 1)
     {
         for (unsigned int index = 0; index < mGpioCount; ++index)
@@ -163,8 +165,32 @@ bool CmdPin::execute(CommandInterpreter &/*interpreter*/, int argc, const Comman
         if (argc == 2)
         {
             printf("GPIO %c%i: ", 'A' + index, pin);
-            if (config) printConfig(mGpio[index], pin);
-            else printValue(mGpio[index], pin);
+            if (config)
+            {
+                printConfig(mGpio[index], pin);
+            }
+            else
+            {
+                uint64_t lastTime = System::instance()->ns();
+                bool lastValue = mGpio[index]->get(static_cast<Gpio::Index>(pin));
+                printValue(mGpio[index], pin);
+                int count = 1000000;
+                int change = 0;
+                while (poll && count > 0 && change < 10)
+                {
+                    --count;
+                    bool value = mGpio[index]->get(static_cast<Gpio::Index>(pin));
+                    if (value != lastValue)
+                    {
+                        ++change;
+                        uint64_t time = System::instance()->ns();
+                        printf(" for %llu us, ", (time - lastTime) / 1000);
+                        lastTime = time;
+                        lastValue = value;
+                        printValue(mGpio[index], pin);
+                    }
+                }
+            }
             printf("\n");
         }
         else
@@ -267,7 +293,7 @@ void CmdPin::printConfig(Gpio *gpio, unsigned int pin)
     }
     else if (m == Gpio::Mode::Alternate)
     {
-        printf(": Function = %i, Speed = %s, Pull = %s", static_cast<int>(gpio->alternate(i)), speed(gpio->speed(i)), pull(gpio->pull(i)));
+        printf(": Function = %i, Type = %s, Speed = %s, Pull = %s", static_cast<int>(gpio->alternate(i)), outputType(gpio->outputType(i)), speed(gpio->speed(i)), pull(gpio->pull(i)));
     }
 }
 
